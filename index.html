@@ -68,7 +68,6 @@
   .card-genre-tag{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.75);border:1px solid var(--gold-dim);border-radius:2px;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);padding:2px 6px;backdrop-filter:blur(4px);pointer-events:none}
   .card-overlay-btns{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:4px;z-index:5;opacity:0;transition:opacity .2s}
   .card:hover .card-overlay-btns{opacity:1}
-  @media(hover:none){.card-overlay-btns{opacity:1}}
   .card-icon-btn{width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,transform .1s;backdrop-filter:blur(4px);font-size:13px;color:var(--cream-dim);flex-shrink:0}
   .card-icon-btn:hover{background:rgba(30,30,30,.95);transform:scale(1.1)}
   .card-icon-btn.fav-active{color:var(--heart)}
@@ -109,7 +108,7 @@
   .photo-upload-overlay .upload-icon{font-size:28px}
   .photo-menu{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:4px;min-width:160px;box-shadow:0 6px 20px rgba(0,0,0,.7);z-index:10;overflow:hidden;animation:popIn .15s ease both}
   .detail-info{padding:20px 24px 20px 20px;display:flex;flex-direction:column;justify-content:space-between;min-height:220px}
-  .detail-actions-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .detail-actions-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
   .detail-heart-btn{background:none;border:1px solid var(--border);border-radius:3px;color:var(--cream-dim);font-size:14px;padding:6px 10px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;display:flex;align-items:center;gap:5px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600}
   .detail-heart-btn.active{border-color:var(--heart);color:var(--heart);background:rgba(224,80,80,.08)}
   .detail-genre-pill{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold-dim);border-radius:2px;padding:3px 8px}
@@ -401,9 +400,6 @@
             <button class="detail-heart-btn" id="detailHeartBtn" onclick="toggleFavoriteFromModal()">
               <span id="detailHeartIcon">♡</span><span id="detailHeartLabel">Favorite</span>
             </button>
-            <button class="detail-heart-btn" id="detailDeleteBtn" onclick="deleteAlbum(currentDetailId)" style="color:var(--red-bright);border-color:var(--red-bright)">
-              <span>🗑</span><span>Remove from Crate</span>
-            </button>
           </div>
           <div id="genreEditorWrap" style="display:none;margin-bottom:8px">
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -608,22 +604,35 @@ function saveCaaCache(){lsSet(CAA_KEY,caaCache)}
 // Some albums need a hand-tuned iTunes search term to find the right cover
 // (self-titled records, compilations, or names iTunes catalogs differently).
 const COVER_QUERY_OVERRIDES = {
+  // Obscure Southern-rock debut — search by full band name + title
   "mose jones|blackbird":"Mose Jones Blackbird",
-  "electric light orchestra|olé elo":"Ole ELO Electric Light Orchestra",
+  // UK hits comp — iTunes indexes under "Electric Light Orchestra", accented title varies
+  "electric light orchestra|olé elo":"Electric Light Orchestra Ole ELO",
+  // 1975 Pickwick budget double-LP — keep exact title for best chance
   "elvis presley|double dynamite":"Elvis Presley Double Dynamite",
-  "elvis presley|elvis the legend lives on":"Elvis Presley The Legend Lives On",
-  "foreigner|foreigner":"Foreigner Foreigner 1977",
-  "grand funk railroad|shine on":"Grand Funk Railroad Shine On",
+  // Multi-LP budget comp — drop the redundant "Elvis" prefix from the search
+  "elvis presley|elvis the legend lives on":"Elvis Presley Legend Lives On",
+  // Self-titled debut — year disambiguates from later releases
+  "foreigner|foreigner":"Foreigner 1977",
+  // Correct album title is "Shinin' On" (1974) — key updated to match fixed collection entry
+  "grand funk railroad|shinin' on":"Grand Funk Railroad Shinin On 1974",
+  // Widely catalogued — plain query is reliable
   "green day|american idiot":"Green Day American Idiot",
-  "jimi hendrix|high, live 'n' dirty":"Jimi Hendrix High Live N Dirty",
+  // 1978 Nutmeg budget live LP — approximated for iTunes search
+  "jimi hendrix|high, live 'n' dirty":"Jimi Hendrix High Live Dirty",
+  // 1969 Reprise compilation — straightforward match
   "jimi hendrix|smash hits":"Jimi Hendrix Smash Hits",
-  "john cougar mellencamp|uh-huh":"John Cougar Mellencamp Uh-Huh",
+  // iTunes catalogs this under "John Mellencamp" not "John Cougar Mellencamp"
+  "john cougar mellencamp|uh-huh":"John Mellencamp Uh Huh 1983",
   "lynyrd skynyrd|give me back my bullets":"Lynyrd Skynyrd Give Me Back My Bullets",
   "pearl jam|ten":"Pearl Jam Ten",
   "pink floyd|animals":"Pink Floyd Animals",
   "pink floyd|the dark side of the moon":"Pink Floyd Dark Side of the Moon",
-  "the babys|union jacks":"The Babys Union Jacks",
-  "the cars|the cars":"The Cars The Cars 1978",
+  // Drop "The" from artist to catch both "Babys" and "The Babys" iTunes entries
+  "the babys|union jacks":"Babys Union Jacks",
+  // Year disambiguates the debut from later self-titled re-issues
+  "the cars|the cars":"The Cars 1978",
+  // Short title — keep artist anchored in the query
   "the doors|13":"The Doors 13"
 };
 
@@ -667,6 +676,22 @@ async function drainCoverQueue(){
   if(failedLookups.size>0&&retryCount<3)scheduleAutoRetry();
 }
 
+// ── COVER NORMALISER ──
+// Strips diacritics (é→e, ü→u, etc.) BEFORE removing non-alphanumeric, so accented
+// titles like "Olé ELO" and plain "Ole ELO" both collapse to the same token.
+function normCover(s){
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]/g,'');
+}
+
+// ── ARTIST ALIASES FOR COVER MATCHING ──
+// Maps a normalised artist key to extra normalised names iTunes might use instead.
+// E.g. "John Cougar Mellencamp" was re-catalogued by iTunes as "John Mellencamp".
+const COVER_ARTIST_ALIASES={
+  "johncougarmellencamp":["johnmellencamp","johncougar"],
+};
+
 async function fetchAndApplyCover({img,artist,title,year}){
   const ck=(artist+"|"+title).toLowerCase();
   for(const q of buildSearchStrategies(artist,title)){
@@ -675,15 +700,18 @@ async function fetchAndApplyCover({img,artist,title,year}){
       if(r.ok){
         const d=await r.json();
         if(d.results&&d.results.length){
-          const normT=title.toLowerCase().replace(/[^a-z0-9]/g,"");
-          const normA=artist.toLowerCase().replace(/[^a-z0-9]/g,"");
+          const normT=normCover(title);
+          const normA=normCover(artist);
+          // Build a list of artist tokens to accept (primary + any known aliases)
+          const artistVariants=[normA,...(COVER_ARTIST_ALIASES[normA]||[])];
           let bestFull=null,bestArtistOnly=null;
           for(const res of d.results){
-            const rT=(res.collectionName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-            const rA=(res.artistName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+            const rT=normCover(res.collectionName||"");
+            const rA=normCover(res.artistName||"");
             const rYear=res.releaseDate?parseInt(res.releaseDate):0;
-            // Artist match: require real overlap, not just a hit on a 1-2 char fragment
-            const artistMatch=rA===normA||(normA.length>2&&(rA.includes(normA)||normA.includes(rA)));
+            // Artist match: any known alias must overlap with the iTunes artist token
+            const artistMatch=artistVariants.some(a=>
+              rA===a||(a.length>2&&(rA.includes(a)||a.includes(rA))));
             const titleMatch=rT===normT||(normT.length>2&&(rT.includes(normT)||normT.includes(rT)));
             const yearMatch=year&&Math.abs(rYear-year)<=2;
             if(!artistMatch)continue;
@@ -714,10 +742,9 @@ function refreshAllCovers(){
   retryCount=0;clearTimeout(retryTimer);
   document.querySelectorAll(".card-art img[data-artist]").forEach(img=>{
     const ck=(img.dataset.artist+"|"+img.dataset.title).toLowerCase();
-    delete caaCache[ck]; // force a fresh lookup instead of reusing a possibly-wrong cached cover
-    coverQueue.push({img,artist:img.dataset.artist,title:img.dataset.title,year:+img.dataset.year||0});
+    if(!caaCache[ck])coverQueue.push({img,artist:img.dataset.artist,title:img.dataset.title,year:+img.dataset.year||0});
+    else img.src=caaCache[ck];
   });
-  saveCaaCache();
   failedLookups.clear();if(coverQueue.length>0)drainCoverQueue();
 }
 
@@ -1270,7 +1297,6 @@ function deleteAlbum(id){
   const idx=vinylCollection.findIndex(x=>x.id===id);if(idx!==-1)vinylCollection.splice(idx,1);
   const ua=lsGet("crate_user_albums",[]).filter(x=>x.id!==id);lsSet("crate_user_albums",ua);
   favorites.delete(id);saveFavorites();buildFilters();render();showToast("Record removed from crate");
-  if(currentDetailId===id){document.getElementById("detailModal").classList.remove("open");currentDetailId=null}
 }
 
 // ── DETAIL MODAL ──
