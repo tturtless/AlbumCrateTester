@@ -21,7 +21,8 @@
   .logo{font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold);letter-spacing:.04em;white-space:nowrap;flex-shrink:0}
   .logo span{color:var(--cream-dim);font-style:italic;font-weight:400;font-size:13px;margin-left:8px;letter-spacing:.08em}
   .header-search{flex:1;max-width:380px;position:relative}
-  .header-search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px;padding:8px 36px 8px 14px;outline:none;transition:border-color .2s}
+  .header-search input{-webkit-appearance:none;appearance:none;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px;padding:8px 36px 8px 14px;outline:none;transition:border-color .2s}
+  .header-search input::-webkit-search-decoration,.header-search input::-webkit-search-cancel-button,.header-search input::-webkit-search-results-button,.header-search input::-webkit-search-results-decoration{display:none}
   .header-search input::placeholder{color:var(--cream-dim)}
   .header-search input:focus{border-color:var(--gold-dim)}
   .header-search .search-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--cream-dim);font-size:14px;pointer-events:none}
@@ -321,8 +322,7 @@
     .logo span{display:none}
     .spin-btn{padding:8px 10px;font-size:11px}
     .header-actions{gap:6px}
-    .want-list-btn,.stats-btn,.add-album-btn{padding:7px 9px;font-size:11px;gap:4px}
-    .stats-btn span:last-child{display:none}
+    .want-list-btn,.stats-btn,.add-album-btn{padding:7px 8px;font-size:10.5px;gap:3px}
     .filter-bar{padding:10px 12px}
     .grid{padding:12px 12px 48px;gap:12px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
     .detail-modal-header{grid-template-columns:1fr}
@@ -344,8 +344,8 @@
     <span class="search-icon">⌕</span>
   </div>
   <div class="header-actions">
-    <button class="want-list-btn" id="wantListBtn"><span>🎯</span><span>Wish List</span></button>
     <button class="stats-btn" id="statsBtn"><span>📊</span><span>Stash Facts</span></button>
+    <button class="want-list-btn" id="wantListBtn"><span>🎯</span><span>Wish List</span></button>
     <button class="add-album-btn" id="addAlbumBtn"><span style="font-size:16px;line-height:1">＋</span><span>Add to Crate</span></button>
     <button class="spin-btn" id="spinBtn">🎲 Spin</button>
   </div>
@@ -604,7 +604,7 @@ function saveCaaCache(){lsSet(CAA_KEY,caaCache)}
 // Some albums need a hand-tuned iTunes search term to find the right cover
 // (self-titled records, compilations, or names iTunes catalogs differently).
 const COVER_QUERY_OVERRIDES = {
-  "moses jones|blackbird":"Moses Jones Blackbird",
+  "mose jones|blackbird":"Mose Jones Blackbird",
   "electric light orchestra|olé elo":"Ole ELO Electric Light Orchestra",
   "elvis presley|double dynamite":"Elvis Presley Double Dynamite",
   "elvis presley|elvis the legend lives on":"Elvis Presley The Legend Lives On",
@@ -667,26 +667,32 @@ async function fetchAndApplyCover({img,artist,title,year}){
   const ck=(artist+"|"+title).toLowerCase();
   for(const q of buildSearchStrategies(artist,title)){
     try{
-      const r=await fetch(`https://itunes.apple.com/search?term=${q}&entity=album&limit=10`);
+      const r=await fetch(`https://itunes.apple.com/search?term=${q}&entity=album&limit=15`);
       if(r.ok){
         const d=await r.json();
         if(d.results&&d.results.length){
-          // Try to pick best match: prefer results where title/artist match
           const normT=title.toLowerCase().replace(/[^a-z0-9]/g,"");
           const normA=artist.toLowerCase().replace(/[^a-z0-9]/g,"");
-          let best=d.results[0];
+          let bestFull=null,bestArtistOnly=null;
           for(const res of d.results){
             const rT=(res.collectionName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
             const rA=(res.artistName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
             const rYear=res.releaseDate?parseInt(res.releaseDate):0;
-            const titleMatch=rT.includes(normT)||normT.includes(rT);
-            const artistMatch=rA.includes(normA)||normA.includes(rA);
-            const yearMatch=year&&Math.abs(rYear-year)<=1;
-            if(titleMatch&&artistMatch&&(yearMatch||!year)){best=res;break}
-            if(titleMatch&&artistMatch){best=res;break}
+            // Artist match: require real overlap, not just a hit on a 1-2 char fragment
+            const artistMatch=rA===normA||(normA.length>2&&(rA.includes(normA)||normA.includes(rA)));
+            const titleMatch=rT===normT||(normT.length>2&&(rT.includes(normT)||normT.includes(rT)));
+            const yearMatch=year&&Math.abs(rYear-year)<=2;
+            if(!artistMatch)continue;
+            if(titleMatch&&!bestFull){bestFull=res;if(!year||yearMatch)break}
+            if(!bestArtistOnly)bestArtistOnly=res;
           }
-          const url=(best.artworkUrl100||best.artworkUrl60||"").replace("100x100bb","600x600bb");
-          if(url){caaCache[ck]=url;saveCaaCache();if(document.contains(img))img.src=url;failedLookups.delete(ck);return;}
+          // Only accept a result where the artist genuinely matches — never fall back
+          // to an arbitrary first result, since that produces a confidently-wrong cover.
+          const best=bestFull||bestArtistOnly;
+          if(best){
+            const url=(best.artworkUrl100||best.artworkUrl60||"").replace("100x100bb","600x600bb");
+            if(url){caaCache[ck]=url;saveCaaCache();if(document.contains(img))img.src=url;failedLookups.delete(ck);return;}
+          }
         }
       }
     }catch{}
@@ -864,7 +870,7 @@ let vinylCollection=[
   {id:7,artist:"Bad Company",title:"Run with the Pack",year:1976,genre:"Classic Rock",shelf:"A",condition:cond(6)},
   {id:8,artist:"Billy Idol",title:"Rebel Yell",year:1983,genre:"New Wave",shelf:"A",condition:cond(0)},
   {id:9,artist:"Black Sabbath",title:"Paranoid",year:1970,genre:"Heavy Metal",shelf:"A",condition:cond(1)},
-  {id:10,artist:"Moses Jones",title:"Blackbird",year:1975,genre:"Classic Rock",shelf:"A",condition:cond(2)},
+  {id:10,artist:"Mose Jones",title:"Blackbird",year:1975,genre:"Classic Rock",shelf:"A",condition:cond(2)},
   {id:11,artist:"Bob Seger & the Silver Bullet Band",title:"Against the Wind",year:1980,genre:"Classic Rock",shelf:"A",condition:cond(3)},
   {id:12,artist:"Bob Seger & the Silver Bullet Band",title:"Night Moves",year:1976,genre:"Classic Rock",shelf:"A",condition:cond(4)},
   {id:13,artist:"Boston",title:"Boston",year:1976,genre:"Classic Rock",shelf:"B",condition:cond(5)},
