@@ -259,6 +259,13 @@
   .want-item-title{font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .want-item-artist{font-size:11px;color:var(--cream-dim)}
   .want-item-year{font-family:'Courier Prime',monospace;font-size:11px;color:var(--cream-dim);flex-shrink:0}
+  .want-item-meta-row{display:flex;align-items:center;gap:6px;margin-top:3px}
+  .want-item-genre{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold-dim);border-radius:2px;padding:1px 6px;background:rgba(201,168,76,.08)}
+  .want-item-fav-pip{color:var(--heart);font-size:10px}
+  .want-fav-btn{background:none;border:1px solid var(--border);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--cream-dim);cursor:pointer;flex-shrink:0;font-size:13px;transition:color .15s,border-color .15s}
+  .want-fav-btn:hover{border-color:var(--heart);color:var(--heart)}
+  .want-fav-btn.fav-active{color:var(--heart);border-color:var(--heart)}
+  .search-result-src{font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--cream-dim);border:1px solid var(--border);border-radius:2px;padding:1px 5px;margin-left:6px;vertical-align:middle}
   .want-remove-btn{background:none;border:none;color:var(--cream-dim);font-size:16px;cursor:pointer;padding:4px;transition:color .15s;flex-shrink:0}
   .want-remove-btn:hover{color:var(--red-bright)}
   .want-move-btn{background:none;border:1px solid #2a4a6a;border-radius:3px;color:var(--want);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;padding:4px 8px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;flex-shrink:0}
@@ -514,7 +521,7 @@
     <button class="modal-close" id="addClose">×</button>
     <div class="add-modal-header">
       <h2>Add to The Crate</h2>
-      <p>Search iTunes — albums already in your crate show an "Add Duplicate" option</p>
+      <p>Search iTunes &amp; Discogs — albums already in your crate show an "Add Duplicate" option</p>
     </div>
     <div class="add-search-area">
       <div class="add-search-row">
@@ -642,6 +649,77 @@ const DISCOGS_COVERS = {
 // ── PERSISTENCE ──
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+
+// ── MULTI-SOURCE ALBUM SEARCH (iTunes + Discogs) ──
+// Discogs' /database/search endpoint requires a personal access token (free from
+// Discogs Settings → Developers). Paste it below to layer Discogs results in on
+// top of iTunes. Leave blank and Discogs is silently skipped — iTunes alone still works.
+const DISCOGS_TOKEN = ""; // <-- paste your Discogs personal access token here
+const DISCOGS_UA = "TheCrateVinylApp/1.0"; // Discogs requires a User-Agent string
+
+// Normalizes either an iTunes or a Discogs result into one common shape so the
+// rest of the app (autocomplete dropdown, search results list, add/want flows)
+// never has to care which source it came from.
+function normalizeResult(item){
+  if(item._src==="discogs"){
+    const title=item.title||"";
+    const sep=title.indexOf(" - ");
+    const artistName=sep>-1?title.slice(0,sep):"";
+    const collectionName=sep>-1?title.slice(sep+3):title;
+    return {
+      artistName, collectionName,
+      releaseDate:item.year?String(item.year):"",
+      artworkUrl60:item.thumb||item.cover_image||"",
+      artworkUrl100:item.cover_image||item.thumb||"",
+      _src:"discogs", _raw:item
+    };
+  }
+  return {
+    artistName:item.artistName||"", collectionName:item.collectionName||"",
+    releaseDate:item.releaseDate||"", artworkUrl60:item.artworkUrl60||"",
+    artworkUrl100:item.artworkUrl100||"", _src:"itunes", _raw:item
+  };
+}
+
+async function fetchItunes(q,limit){
+  try{
+    const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=${limit}`);
+    if(!r.ok)return[];
+    const d=await r.json();
+    return (d.results||[]).map(it=>normalizeResult(it));
+  }catch{return[]}
+}
+
+async function fetchDiscogs(q,limit){
+  if(!DISCOGS_TOKEN)return[];
+  try{
+    const r=await fetch(`https://api.discogs.com/database/search?q=${encodeURIComponent(q)}&type=release&per_page=${limit}&token=${DISCOGS_TOKEN}`,{
+      headers:{"User-Agent":DISCOGS_UA}
+    });
+    if(!r.ok)return[];
+    const d=await r.json();
+    return (d.results||[]).map(it=>normalizeResult({...it,_src:"discogs"}));
+  }catch{return[]}
+}
+
+// Pulls from both sources in parallel, merges, and de-dupes by normalized artist+title
+// so the same album found on both services only shows up once (iTunes wins the slot
+// since its artwork tends to be more consistent, but Discogs fills in everything iTunes missed).
+async function fetchAlbumSearch(q,limit=10){
+  const [itunesRes,discogsRes]=await Promise.all([
+    fetchItunes(q,limit),
+    fetchDiscogs(q,limit)
+  ]);
+  const seen=new Set();
+  const merged=[];
+  [...itunesRes,...discogsRes].forEach(item=>{
+    const key=normalizeStr(item.artistName)+"|"+normalizeStr(item.collectionName);
+    if(seen.has(key)||!item.collectionName)return;
+    seen.add(key);
+    merged.push(item);
+  });
+  return merged.slice(0,limit);
+}
 
 // ── COVER ART (iTunes) ──
 const CAA_KEY="crate_coverart_cache_v4";
@@ -1862,7 +1940,7 @@ function renderAboutData(container, a, data){
     if(!val || val==="Information not available" || val==="See liner notes") return "";
     return `<div>
       <div style="font-size:9px;color:var(--cream-dim);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">${label}</div>
-      <div style="font-size:13px;color:var(--cream);line-height:1.4${mono?";font-family:'Courier Prime',monospace":"}">${escAttr(val)}</div>
+      <div style="font-size:13px;color:var(--cream);line-height:1.4;${mono?"font-family:'Courier Prime',monospace":""}">${escAttr(val)}</div>
     </div>`;
   }
 
@@ -2084,9 +2162,8 @@ const addDebounce=debounce(async(q)=>{
   const drop=document.getElementById("addAutoDropdown");
   drop.innerHTML=`<div class="ac-spinner">Searching…</div>`;drop.classList.add("open");
   try{
-    const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=8`);
-    const d=await r.json();
-    buildAcDropdown(drop,d.results||[],(item)=>{
+    const results=await fetchAlbumSearch(q,8);
+    buildAcDropdown(drop,results,(item)=>{
       addAlbumFromSearch(item,albumExistsInCrate(item.artistName||"",item.collectionName||""));
       closeAutocomplete("addAutoDropdown");
       document.getElementById("addSearchInput").value="";
@@ -2108,13 +2185,13 @@ async function searchAlbums(){
   const btn=document.getElementById("addSearchBtn"),list=document.getElementById("searchResultsList");
   btn.disabled=true;btn.textContent="Searching";btn.classList.add("loading-dots");list.innerHTML="";
   try{
-    const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=10`);
-    const d=await r.json();
+    const results=await fetchAlbumSearch(q,12);
     btn.disabled=false;btn.textContent="Search";btn.classList.remove("loading-dots");
-    if(!d.results||!d.results.length){list.innerHTML=`<p style="font-size:12px;color:var(--cream-dim);padding:8px 0;">No results found. Try a different search or add manually below.</p>`;return}
+    if(!results.length){list.innerHTML=`<p style="font-size:12px;color:var(--cream-dim);padding:8px 0;">No results found. Try a different search or add manually below.</p>`;return}
 
-    list.innerHTML=d.results.map((item,i)=>{
+    list.innerHTML=results.map((item,i)=>{
       const isDup=albumExistsInCrate(item.artistName||"",item.collectionName||"");
+      const srcTag=item._src==="discogs"?`<span class="search-result-src" title="Source: Discogs">Discogs</span>`:`<span class="search-result-src" title="Source: iTunes">iTunes</span>`;
       const btnHtml=isDup
         ?`<div class="search-result-dup-wrap">
             <span class="search-result-in-crate">✓ In Crate</span>
@@ -2124,15 +2201,15 @@ async function searchAlbums(){
       return `<div class="search-result-row">
         <img class="search-result-thumb" src="${item.artworkUrl60||''}" alt="">
         <div class="search-result-info">
-          <div class="search-result-title">${escAttr(item.collectionName||'Unknown')}</div>
-          <div class="search-result-meta">${escAttr(item.artistName||'')} · ${item.releaseDate?item.releaseDate.slice(0,4):''}</div>
+          <div class="search-result-title">${escAttr(item.collectionName||'Unknown')} ${srcTag}</div>
+          <div class="search-result-meta">${escAttr(item.artistName||'')} · ${item.releaseDate?String(item.releaseDate).slice(0,4):''}</div>
         </div>
         ${btnHtml}
       </div>`;
     }).join("");
 
     list.querySelectorAll(".search-result-add,.search-result-dup").forEach(btn=>{
-      btn.addEventListener("click",()=>{const item=d.results[+btn.dataset.idx];addAlbumFromSearch(item,btn.classList.contains("search-result-dup"))});
+      btn.addEventListener("click",()=>{const item=results[+btn.dataset.idx];addAlbumFromSearch(item,btn.classList.contains("search-result-dup"))});
     });
   }catch{
     btn.disabled=false;btn.textContent="Search";btn.classList.remove("loading-dots");
@@ -2141,7 +2218,7 @@ async function searchAlbums(){
 }
 
 function addAlbumFromSearch(item,isDuplicate=false){
-  const year=item.releaseDate?parseInt(item.releaseDate):new Date().getFullYear();
+  const year=item.releaseDate?parseInt(String(item.releaseDate).slice(0,4)):new Date().getFullYear();
   const album={id:nextId++,artist:item.artistName||"Unknown Artist",title:item.collectionName||"Unknown Album",year,genre:"Classic Rock",condition:"VG+",decade:Math.floor(year/10)*10,_itunesArt:item.artworkUrl100?item.artworkUrl100.replace("100x100bb","400x400bb"):null};
   vinylCollection.push(album);
   if(album._itunesArt){caaCache[(album.artist+"|"+album.title).toLowerCase()]=album._itunesArt;saveCaaCache()}
@@ -2185,9 +2262,8 @@ const wantDebounce=debounce(async(q)=>{
   const drop=document.getElementById("wantAutoDropdown");
   drop.innerHTML=`<div class="ac-spinner">Searching…</div>`;drop.classList.add("open");
   try{
-    const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=8`);
-    const d=await r.json();
-    buildAcDropdown(drop,d.results||[],(item)=>{
+    const results=await fetchAlbumSearch(q,8);
+    buildAcDropdown(drop,results,(item)=>{
       _wantSelectedItem=item;
       document.getElementById("wantSearchInput").value=`${item.collectionName||""} — ${item.artistName||""}`;
       closeAutocomplete("wantAutoDropdown");
@@ -2201,8 +2277,13 @@ document.getElementById("wantSearchInput").addEventListener("input",e=>{wantDebo
 document.getElementById("wantSearchInput").addEventListener("blur",()=>setTimeout(()=>closeAutocomplete("wantAutoDropdown"),200));
 
 function commitWantItem(itunesItem){
-  const year=itunesItem.releaseDate?itunesItem.releaseDate.slice(0,4):"";
-  const item={id:Date.now(),artist:itunesItem.artistName||"Unknown Artist",title:itunesItem.collectionName||"Unknown Album",year,artUrl:itunesItem.artworkUrl100||""};
+  const year=itunesItem.releaseDate?String(itunesItem.releaseDate).slice(0,4):"";
+  let genre="";
+  if(itunesItem._src==="discogs"&&itunesItem._raw){
+    const g=(itunesItem._raw.genre&&itunesItem._raw.genre[0])||(itunesItem._raw.style&&itunesItem._raw.style[0])||"";
+    genre=g;
+  }
+  const item={id:Date.now(),artist:itunesItem.artistName||"Unknown Artist",title:itunesItem.collectionName||"Unknown Album",year,artUrl:itunesItem.artworkUrl100||itunesItem.artworkUrl60||"",genre,fav:false};
   wantList.push(item);saveWantList();renderWantList();
   document.getElementById("wantSearchInput").value="";
   _wantSelectedItem=null;
@@ -2212,9 +2293,9 @@ function commitWantItem(itunesItem){
 async function addWantManual(){
   const raw=document.getElementById("wantSearchInput").value.trim();
   if(!raw){showToast("Type an artist or album name first");return;}
-  const item={id:Date.now(),artist:"Unknown Artist",title:raw,year:"",artUrl:""};
-  // Try to find cover art from iTunes
-  try{const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(raw)}&entity=album&limit=1`);const d=await r.json();if(d.results&&d.results.length){const hit=d.results[0];item.artUrl=hit.artworkUrl100||"";if(!item.year&&hit.releaseDate)item.year=hit.releaseDate.slice(0,4);}}catch{}
+  const item={id:Date.now(),artist:"Unknown Artist",title:raw,year:"",artUrl:"",genre:"",fav:false};
+  // Try to find cover art from iTunes/Discogs
+  try{const results=await fetchAlbumSearch(raw,1);if(results.length){const hit=results[0];item.artUrl=hit.artworkUrl100||"";if(!item.year&&hit.releaseDate)item.year=String(hit.releaseDate).slice(0,4);}}catch{}
   wantList.push(item);saveWantList();renderWantList();
   document.getElementById("wantSearchInput").value="";
   showToast(`✓ "${item.title}" added to wish list`);
@@ -2227,12 +2308,18 @@ function removeWantItem(id){wantList=wantList.filter(x=>x.id!==id);saveWantList(
 
 function moveWantToCrate(id){
   const item=wantList.find(x=>x.id===id);if(!item)return;
-  const album={id:nextId++,artist:item.artist,title:item.title,year:parseInt(item.year)||new Date().getFullYear(),genre:"Classic Rock",condition:"VG+",decade:Math.floor((parseInt(item.year)||new Date().getFullYear())/10)*10};
+  const album={id:nextId++,artist:item.artist,title:item.title,year:parseInt(item.year)||new Date().getFullYear(),genre:item.genre||"Classic Rock",condition:"VG+",decade:Math.floor((parseInt(item.year)||new Date().getFullYear())/10)*10};
   if(item.artUrl){caaCache[(album.artist+"|"+album.title).toLowerCase()]=item.artUrl;saveCaaCache()}
   vinylCollection.push(album);const ua=lsGet("crate_user_albums",[]);ua.push(album);lsSet("crate_user_albums",ua);
+  if(item.fav){favorites.add(album.id);lsSet("crate_favorites",[...favorites]);}
   removeWantItem(id);buildFilters();render();
   showToast(`✓ "${album.title}" moved to your crate`);
   prefetchAboutData(album.artist, album.title, album.year);
+}
+
+function toggleWantFavorite(id){
+  const item=wantList.find(x=>x.id===id);if(!item)return;
+  item.fav=!item.fav;saveWantList();renderWantList();
 }
 
 function renderWantList(){
@@ -2241,17 +2328,23 @@ function renderWantList(){
   if(!wantList.length){list.innerHTML=`<div class="wantlist-empty">🎯 Your wish list is empty.<br>Add albums you're hunting for.</div>`;return}
   list.innerHTML=wantList.map(item=>`
     <div class="want-item">
-      <img class="want-item-art" src="${escAttr(item.artUrl||getPlaceholder('default'))}" alt="">
+      <img class="want-item-art" src="${escAttr(item.artUrl||getPlaceholder(item.genre||'default'))}" alt="">
       <div class="want-item-info">
         <div class="want-item-title">${escAttr(item.title)}</div>
         <div class="want-item-artist">${escAttr(item.artist)}</div>
+        <div class="want-item-meta-row">
+          ${item.genre?`<span class="want-item-genre">${escAttr(item.genre)}</span>`:""}
+          ${item.fav?'<span class="want-item-fav-pip">♥</span>':''}
+        </div>
       </div>
-      ${item.year?`<span class="want-item-year">${item.year}</span>`:""}
+      ${item.year?`<span class="want-item-year">${escAttr(item.year)}</span>`:""}
+      <button class="want-fav-btn ${item.fav?'fav-active':''}" data-id="${item.id}" title="${item.fav?'Remove from favorites':'Add to favorites'}">${item.fav?'♥':'♡'}</button>
       <button class="want-move-btn" data-id="${item.id}">→ Crate</button>
       <button class="want-remove-btn" data-id="${item.id}" title="Remove">×</button>
     </div>`).join("");
   list.querySelectorAll(".want-move-btn").forEach(btn=>btn.addEventListener("click",()=>moveWantToCrate(+btn.dataset.id)));
   list.querySelectorAll(".want-remove-btn").forEach(btn=>btn.addEventListener("click",()=>removeWantItem(+btn.dataset.id)));
+  list.querySelectorAll(".want-fav-btn").forEach(btn=>btn.addEventListener("click",()=>toggleWantFavorite(+btn.dataset.id)));
 }
 
 // ── STATS MODAL ──
