@@ -318,18 +318,26 @@
 
   /* RESPONSIVE */
   @media(max-width:640px){
-    .site-header{gap:8px;padding:0 12px}
+    .site-header{gap:6px;padding:0 10px}
+    .logo{font-size:17px}
     .logo span{display:none}
-    .spin-btn{padding:8px 10px;font-size:11px}
-    .header-actions{gap:6px}
-    .want-list-btn,.stats-btn,.add-album-btn{padding:7px 8px;font-size:10.5px;gap:3px}
-    .filter-bar{padding:10px 12px}
-    .grid{padding:12px 12px 48px;gap:12px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+    .spin-btn{padding:7px 8px;font-size:10px}
+    .header-actions{gap:4px}
+    .want-list-btn,.stats-btn,.add-album-btn{padding:6px 7px;font-size:10px;gap:2px}
+    .want-list-btn span:last-child,.stats-btn span:last-child,.add-album-btn span:last-child{display:none}
+    .filter-bar{padding:8px 10px;gap:6px}
+    .filter-select{font-size:11px;padding:5px 22px 5px 8px}
+    .grid{padding:8px 8px 48px;gap:8px;grid-template-columns:repeat(3,1fr)}
+    .card-body{padding:7px 8px 9px}
+    .card-artist{font-size:9px;margin-bottom:2px}
+    .card-title{font-size:12px;margin-bottom:4px}
+    .card-meta{font-size:10px}
+    .card-genre-tag{font-size:8px;padding:2px 4px}
     .detail-modal-header{grid-template-columns:1fr}
     .detail-art-wrap{border-radius:6px 6px 0 0;aspect-ratio:16/9;max-height:200px}
     .form-row{grid-template-columns:1fr}
   }
-  @media(max-width:400px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:400px){.grid{grid-template-columns:repeat(3,1fr)}}
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   @media(prefers-reduced-motion:reduce){.card,.vinyl-spinning,.vinyl-slowing{animation:none;transition:none}}
 </style>
@@ -613,6 +621,7 @@ const DISCOGS_COVERS = {
   "pink floyd|the dark side of the moon": "https://i.discogs.com/1fwskTLM6cfxbdNmBDJ8expl6wab0tEgxvuloLIqKh8/rs:fit/g:sm/q:90/h:596/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTkyODc4/MDktMTQ3OTc1MzIz/Ni05NjE3LmpwZWc.jpeg",
   "the babys|union jacks": "https://i.discogs.com/59xvhuAuOA8gjeG3cW08gu92XPDdoevrzizhxIHtZ9U/rs:fit/g:sm/q:90/h:597/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc1MzU4/OC0xNTM4MTMyOTQ1/LTYzMTguanBlZw.jpeg",
   "the cars|the cars": "https://i.discogs.com/mQ4p8rs4QCkWGIUV36RxMK41r3w-paGDsHmPYFZwydA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE5MDIx/OS0xMzE5MDU0ODYz/LmpwZWc.jpeg",
+  "the doors|13": "https://i.discogs.com/AsXJXr7HA_M2xcmLFkY4WsxuM-pPr67tPllRXeWQC28/rs:fit/g:sm/q:90/h:590/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTI5MTcx/MzMtMTM2MTMwMDQ1/NS05MjU1LmpwZWc.jpeg",
 };
 
 // ── PERSISTENCE ──
@@ -658,7 +667,7 @@ const COVER_QUERY_OVERRIDES = {
   // Year disambiguates the debut from later self-titled re-issues
   "the cars|the cars":"The Cars 1978",
   // Short title — keep artist anchored in the query
-  "the doors|13":"The Doors 13"
+  "the doors|13":"The Doors 13 1970"
 };
 
 function buildSearchStrategies(artist,title){
