@@ -252,7 +252,7 @@
   .wantlist-add-btn{background:var(--want);border:none;border-radius:3px;color:#fff;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer;white-space:nowrap;transition:opacity .2s}
   .wantlist-add-btn:hover{opacity:.85}
   .wantlist-list{padding:12px 24px 24px;display:flex;flex-direction:column;gap:8px;min-height:120px}
-  .want-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:3px;transition:border-color .15s}
+  .want-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:3px;transition:border-color .15s;cursor:pointer}
   .want-item:hover{border-color:#2a4a6a}
   .want-item-art{width:48px;height:48px;border-radius:2px;object-fit:cover;background:var(--groove);flex-shrink:0}
   .want-item-info{flex:1;min-width:0}
@@ -495,9 +495,17 @@
     <div class="tab-panel" id="tab-about">
       <div id="aboutContainer"></div>
     </div>
-    <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+    <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px" id="detailFooterCrate">
       <button id="detailDeleteBtn" onclick="deleteAlbumFromModal()" style="background:none;border:1px solid var(--red-bright);border-radius:3px;color:var(--red-bright);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;padding:7px 14px;cursor:pointer;transition:background .15s,color .15s;display:flex;align-items:center;gap:6px">
         <span style="font-size:13px">🗑</span> Remove from Crate
+      </button>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid var(--border);display:none;justify-content:flex-end;gap:8px" id="detailFooterWant">
+      <button id="wantDetailRemoveBtn" onclick="removeWantFromModal()" style="background:none;border:1px solid var(--red-bright);border-radius:3px;color:var(--red-bright);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;padding:7px 14px;cursor:pointer;transition:background .15s,color .15s;display:flex;align-items:center;gap:6px">
+        <span style="font-size:13px">🗑</span> Remove from Wish List
+      </button>
+      <button id="wantDetailMoveBtn" onclick="moveWantToCrateFromModal()" style="background:var(--want);border:1px solid var(--want);border-radius:3px;color:#fff;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.06em;padding:7px 14px;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;gap:6px">
+        <span style="font-size:13px">→</span> Move to Crate
       </button>
     </div>
   </div>
@@ -686,7 +694,22 @@ async function fetchItunes(q,limit){
     const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=${limit}`);
     if(!r.ok)return[];
     const d=await r.json();
-    return (d.results||[]).map(it=>normalizeResult(it));
+    let results=(d.results||[]).map(it=>normalizeResult(it));
+    // iTunes' combined-term search sometimes comes back thin for less common queries
+    // (e.g. it favors exact-phrase matches). If we got very few hits, run a second
+    // pass with attribute=albumTerm to cast a wider net before giving up on iTunes.
+    if(results.length<3){
+      try{
+        const r2=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&attribute=albumTerm&limit=${limit}`);
+        if(r2.ok){
+          const d2=await r2.json();
+          const more=(d2.results||[]).map(it=>normalizeResult(it));
+          const seen=new Set(results.map(x=>normalizeStr(x.artistName)+"|"+normalizeStr(x.collectionName)));
+          more.forEach(it=>{const k=normalizeStr(it.artistName)+"|"+normalizeStr(it.collectionName);if(!seen.has(k)){seen.add(k);results.push(it)}});
+        }
+      }catch{}
+    }
+    return results;
   }catch{return[]}
 }
 
@@ -702,17 +725,42 @@ async function fetchDiscogs(q,limit){
   }catch{return[]}
 }
 
-// Pulls from both sources in parallel, merges, and de-dupes by normalized artist+title
-// so the same album found on both services only shows up once (iTunes wins the slot
-// since its artwork tends to be more consistent, but Discogs fills in everything iTunes missed).
+// MusicBrainz release-group search — third layer, no key/token required at all.
+// Its catalog skews toward release metadata rather than cover art, so it's most
+// useful for filling in obscure or import-only titles iTunes/Discogs miss; we
+// borrow Discogs/iTunes art for these when the same album is found elsewhere.
+async function fetchMusicBrainz(q,limit){
+  try{
+    const r=await fetch(`https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=${limit}`,{
+      headers:{"Accept":"application/json"}
+    });
+    if(!r.ok)return[];
+    const d=await r.json();
+    return (d["release-groups"]||[]).map(rg=>{
+      const artistName=(rg["artist-credit"]&&rg["artist-credit"][0]&&rg["artist-credit"][0].name)||"";
+      return normalizeResult({
+        _src:"musicbrainz",
+        artistName, collectionName:rg.title||"",
+        releaseDate:rg["first-release-date"]?rg["first-release-date"].slice(0,4):"",
+        artworkUrl60:"", artworkUrl100:""
+      });
+    });
+  }catch{return[]}
+}
+
+// Pulls from all three sources in parallel, merges, and de-dupes by normalized
+// artist+title so the same album found on multiple services only shows up once.
+// iTunes results are kept first since they reliably include artwork; Discogs and
+// MusicBrainz fill in whatever iTunes' catalog is missing.
 async function fetchAlbumSearch(q,limit=10){
-  const [itunesRes,discogsRes]=await Promise.all([
+  const [itunesRes,discogsRes,mbRes]=await Promise.all([
     fetchItunes(q,limit),
-    fetchDiscogs(q,limit)
+    fetchDiscogs(q,limit),
+    fetchMusicBrainz(q,limit)
   ]);
   const seen=new Set();
   const merged=[];
-  [...itunesRes,...discogsRes].forEach(item=>{
+  [...itunesRes,...discogsRes,...mbRes].forEach(item=>{
     const key=normalizeStr(item.artistName)+"|"+normalizeStr(item.collectionName);
     if(seen.has(key)||!item.collectionName)return;
     seen.add(key);
@@ -1184,6 +1232,8 @@ const GRADE_DEFS={
 let state={search:"",genre:"",decade:"",sort:"az",favOnly:false};
 let activeMenuId=null;
 let currentDetailId=null;
+let currentWantId=null; // set when the detail modal is showing a wishlist item instead of a crate album
+function isWantDetailOpen(){return currentWantId!==null}
 
 // ── FILTER + SORT ──
 function unique(arr){return[...new Set(arr)].filter(Boolean).sort()}
@@ -1430,11 +1480,15 @@ function deleteAlbum(id){
 function openDetail(id){
   const a=vinylCollection.find(x=>x.id===id);if(!a)return;
   currentDetailId=id;
+  currentWantId=null;
+  setDetailModalMode("crate");
   const modalArt=document.getElementById("modalArt");
   modalArt.src=customCovers[id]||getPlaceholder(a.genre);modalArt.alt=a.title;
   if(!customCovers[id])lookupCoverArt(a.artist,a.title).then(url=>{if(url)modalArt.src=url});
   document.getElementById("modalGenreText").textContent=a.genre;
   document.getElementById("modalGenre").title="Click to change genre";
+  document.getElementById("modalGenre").onclick=openGenreEditor;
+  document.getElementById("modalGenre").style.cursor="pointer";
   closeGenreEditor();
   document.getElementById("modalTitle").textContent=a.title;
   document.getElementById("modalArtist").textContent=a.artist;
@@ -1454,11 +1508,81 @@ function openDetail(id){
   }
   document.getElementById("modalFormat").textContent=(formats[id]||"33")+" RPM";
   updateDetailHeartBtn(id);
+  document.getElementById("detailHeartBtn").onclick=toggleFavoriteFromModal;
   activateTab("grade");
   buildGradeTab(id);buildTracklistTab(id);buildNotesTab(id);
   document.getElementById("aboutContainer").innerHTML="";
   document.getElementById("detailModal").classList.add("open");
   document.getElementById("detailClose").focus();
+}
+
+// Shows/hides the parts of the detail modal that only make sense for albums you
+// already own (grade, tracklist, condition, format) vs. a wishlist item you don't
+// own yet. Both modes reuse the same modal shell so the look stays consistent.
+function setDetailModalMode(mode){
+  const isWant=mode==="want";
+  document.getElementById("detailFooterCrate").style.display=isWant?"none":"flex";
+  document.getElementById("detailFooterWant").style.display=isWant?"flex":"none";
+  document.querySelector('.tab-btn[data-tab="grade"]').style.display=isWant?"none":"";
+  document.querySelector('.tab-btn[data-tab="tracklist"]').style.display=isWant?"none":"";
+  document.querySelector('.tab-btn[data-tab="notes"]').style.display=isWant?"none":"";
+  document.getElementById("photoUploadTrigger").style.display=isWant?"none":"";
+  const condChip=document.getElementById("conditionChip"),fmtChip=document.getElementById("modalFormat").closest(".detail-chip");
+  if(condChip)condChip.style.display=isWant?"none":"";
+  if(fmtChip)fmtChip.style.display=isWant?"none":"";
+}
+
+// Opens the same detail modal for a wishlist item — shows artist, title, year,
+// genre, and About info just like a crate album, but hides the owner-only tabs
+// (Grade/Tracklist/Notes/Condition/Format) since you don't have the record yet.
+function openWantDetail(id){
+  const item=wantList.find(x=>x.id===id);if(!item)return;
+  currentWantId=id;
+  currentDetailId=null;
+  setDetailModalMode("want");
+  const modalArt=document.getElementById("modalArt");
+  modalArt.src=item.artUrl||getPlaceholder(item.genre||"default");modalArt.alt=item.title;
+  document.getElementById("modalGenreText").textContent=item.genre||"Unsorted";
+  document.getElementById("modalGenre").title="";
+  document.getElementById("modalGenre").onclick=null;
+  document.getElementById("modalGenre").style.cursor="default";
+  closeGenreEditor();
+  document.getElementById("modalTitle").textContent=item.title;
+  document.getElementById("modalArtist").textContent=item.artist;
+  document.getElementById("modalYear").textContent=item.year||"—";
+  document.getElementById("modalDecade").textContent=item.year?decadeLabel(Math.floor(parseInt(item.year)/10)*10):"—";
+  updateWantDetailHeartBtn(id);
+  document.getElementById("detailHeartBtn").onclick=toggleWantFavoriteFromModal;
+  activateTab("about");
+  buildAboutTab(null,item);
+  document.getElementById("detailModal").classList.add("open");
+  document.getElementById("detailClose").focus();
+}
+
+function updateWantDetailHeartBtn(id){
+  const item=wantList.find(x=>x.id===id);if(!item)return;
+  const btn=document.getElementById("detailHeartBtn"),icon=document.getElementById("detailHeartIcon"),label=document.getElementById("detailHeartLabel");
+  if(!btn)return;
+  btn.classList.toggle("active",!!item.fav);icon.textContent=item.fav?"♥":"♡";label.textContent=item.fav?"Favorited":"Favorite";
+}
+function toggleWantFavoriteFromModal(){
+  if(currentWantId==null)return;
+  toggleWantFavorite(currentWantId);
+  updateWantDetailHeartBtn(currentWantId);
+}
+function removeWantFromModal(){
+  if(currentWantId==null)return;
+  const item=wantList.find(x=>x.id===currentWantId);
+  if(item&&!confirm(`Remove "${item.title}" from your wish list?`))return;
+  document.getElementById("detailModal").classList.remove("open");
+  const id=currentWantId;currentWantId=null;
+  removeWantItem(id);
+}
+function moveWantToCrateFromModal(){
+  if(currentWantId==null)return;
+  document.getElementById("detailModal").classList.remove("open");
+  const id=currentWantId;currentWantId=null;
+  moveWantToCrate(id);
 }
 
 // Photo upload
@@ -1485,8 +1609,12 @@ document.getElementById("coverFileInput").addEventListener("change",function(){
 // Tabs
 document.querySelectorAll(".tab-btn").forEach(btn=>{
   btn.addEventListener("click",()=>{
+    if(btn.style.display==="none")return;
     activateTab(btn.dataset.tab);
-    if(btn.dataset.tab==="about")buildAboutTab(currentDetailId);
+    if(btn.dataset.tab==="about"){
+      if(isWantDetailOpen()){const item=wantList.find(x=>x.id===currentWantId);buildAboutTab(null,item)}
+      else buildAboutTab(currentDetailId);
+    }
   });
 });
 function activateTab(name){
@@ -1996,8 +2124,8 @@ function renderAboutData(container, a, data){
     </div>`;
 }
 
-function buildAboutTab(id){
-  const a=vinylCollection.find(x=>x.id===id);
+function buildAboutTab(id,wantItem){
+  const a=wantItem?{artist:wantItem.artist,title:wantItem.title,year:wantItem.year||"",genre:wantItem.genre||"Unsorted",decade:wantItem.year?Math.floor(parseInt(wantItem.year)/10)*10:""}:vinylCollection.find(x=>x.id===id);
   const container=document.getElementById("aboutContainer");
   if(!a){container.innerHTML="<p style='color:var(--cream-dim);font-size:13px;padding:8px'>No album selected.</p>";return}
 
@@ -2031,8 +2159,8 @@ function buildAboutTab(id){
     </div>`;
 
   fetchAlbumAbout(a.artist, a.title, a.year).then(data=>{
-    // Only update if this album is still open
-    if(currentDetailId !== id) return;
+    // Only update if this album/wishlist item is still open
+    if(wantItem ? currentWantId!==wantItem.id : currentDetailId!==id) return;
     const stillContainer = document.getElementById("aboutContainer");
     if(!stillContainer) return;
     if(data){
@@ -2045,8 +2173,8 @@ function buildAboutTab(id){
 }
 
 // Close detail modal
-document.getElementById("detailClose").addEventListener("click",()=>{document.getElementById("detailModal").classList.remove("open");closePhotoMenu();currentDetailId=null});
-document.getElementById("detailModal").addEventListener("click",e=>{if(e.target===document.getElementById("detailModal")){document.getElementById("detailModal").classList.remove("open");closePhotoMenu();currentDetailId=null}});
+document.getElementById("detailClose").addEventListener("click",()=>{document.getElementById("detailModal").classList.remove("open");closePhotoMenu();currentDetailId=null;currentWantId=null});
+document.getElementById("detailModal").addEventListener("click",e=>{if(e.target===document.getElementById("detailModal")){document.getElementById("detailModal").classList.remove("open");closePhotoMenu();currentDetailId=null;currentWantId=null}});
 
 // Delete from inside the detail modal
 function deleteAlbumFromModal(){
@@ -2191,7 +2319,7 @@ async function searchAlbums(){
 
     list.innerHTML=results.map((item,i)=>{
       const isDup=albumExistsInCrate(item.artistName||"",item.collectionName||"");
-      const srcTag=item._src==="discogs"?`<span class="search-result-src" title="Source: Discogs">Discogs</span>`:`<span class="search-result-src" title="Source: iTunes">iTunes</span>`;
+      const srcTag=item._src==="discogs"?`<span class="search-result-src" title="Source: Discogs">Discogs</span>`:item._src==="musicbrainz"?`<span class="search-result-src" title="Source: MusicBrainz">MusicBrainz</span>`:`<span class="search-result-src" title="Source: iTunes">iTunes</span>`;
       const btnHtml=isDup
         ?`<div class="search-result-dup-wrap">
             <span class="search-result-in-crate">✓ In Crate</span>
@@ -2327,7 +2455,7 @@ function renderWantList(){
   count.textContent=wantList.length===1?"1 record":`${wantList.length} records`;
   if(!wantList.length){list.innerHTML=`<div class="wantlist-empty">🎯 Your wish list is empty.<br>Add albums you're hunting for.</div>`;return}
   list.innerHTML=wantList.map(item=>`
-    <div class="want-item">
+    <div class="want-item" data-id="${item.id}" tabindex="0" role="button" aria-label="${escAttr(item.artist)} — ${escAttr(item.title)}">
       <img class="want-item-art" src="${escAttr(item.artUrl||getPlaceholder(item.genre||'default'))}" alt="">
       <div class="want-item-info">
         <div class="want-item-title">${escAttr(item.title)}</div>
@@ -2342,9 +2470,14 @@ function renderWantList(){
       <button class="want-move-btn" data-id="${item.id}">→ Crate</button>
       <button class="want-remove-btn" data-id="${item.id}" title="Remove">×</button>
     </div>`).join("");
-  list.querySelectorAll(".want-move-btn").forEach(btn=>btn.addEventListener("click",()=>moveWantToCrate(+btn.dataset.id)));
-  list.querySelectorAll(".want-remove-btn").forEach(btn=>btn.addEventListener("click",()=>removeWantItem(+btn.dataset.id)));
-  list.querySelectorAll(".want-fav-btn").forEach(btn=>btn.addEventListener("click",()=>toggleWantFavorite(+btn.dataset.id)));
+  list.querySelectorAll(".want-item").forEach(row=>{
+    const id=+row.dataset.id;
+    row.addEventListener("click",e=>{if(e.target.closest("button"))return;document.getElementById("wantlistModal").classList.remove("open");openWantDetail(id)});
+    row.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();document.getElementById("wantlistModal").classList.remove("open");openWantDetail(id)}});
+  });
+  list.querySelectorAll(".want-move-btn").forEach(btn=>btn.addEventListener("click",e=>{e.stopPropagation();moveWantToCrate(+btn.dataset.id)}));
+  list.querySelectorAll(".want-remove-btn").forEach(btn=>btn.addEventListener("click",e=>{e.stopPropagation();removeWantItem(+btn.dataset.id)}));
+  list.querySelectorAll(".want-fav-btn").forEach(btn=>btn.addEventListener("click",e=>{e.stopPropagation();toggleWantFavorite(+btn.dataset.id)}));
 }
 
 // ── STATS MODAL ──
@@ -2523,7 +2656,7 @@ document.getElementById("searchInput").addEventListener("input",e=>{state.search
 document.getElementById("decadeFilter").addEventListener("change",e=>{state.decade=e.target.value;render()});
 document.getElementById("favFilterBtn").addEventListener("click",function(){state.favOnly=!state.favOnly;this.classList.toggle("active",state.favOnly);render()});
 document.querySelectorAll(".sort-btn").forEach(btn=>{btn.addEventListener("click",()=>{document.querySelectorAll(".sort-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");state.sort=btn.dataset.sort;render()})});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.getElementById("detailModal").classList.remove("open");document.getElementById("spinModal").classList.remove("open");document.getElementById("addModal").classList.remove("open");document.getElementById("wantlistModal").classList.remove("open");closeCardMenu();closePhotoMenu();clearTimeout(spinTimeout)}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){document.getElementById("detailModal").classList.remove("open");document.getElementById("spinModal").classList.remove("open");document.getElementById("addModal").classList.remove("open");document.getElementById("wantlistModal").classList.remove("open");currentDetailId=null;currentWantId=null;closeCardMenu();closePhotoMenu();clearTimeout(spinTimeout)}});
 
 // ── TOAST ──
 let toastTimer=null;
