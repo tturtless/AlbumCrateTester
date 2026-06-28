@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=600, maximum-scale=1.0, user-scalable=no">
 <title>The Crate — Vinyl Collection</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@300;400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -21,7 +21,6 @@
   .logo{font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold);letter-spacing:.04em;white-space:nowrap;flex-shrink:0}
   .logo span{color:var(--cream-dim);font-style:italic;font-weight:400;font-size:13px;margin-left:8px;letter-spacing:.08em}
   .header-search{flex:1;max-width:380px;position:relative}
-  .site-header-row1{display:contents} /* on desktop, children flow directly into the header flex row */
   .header-search input{-webkit-appearance:none;appearance:none;width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px;padding:8px 36px 8px 14px;outline:none;transition:border-color .2s}
   .header-search input::-webkit-search-decoration,.header-search input::-webkit-search-cancel-button,.header-search input::-webkit-search-results-button,.header-search input::-webkit-search-results-decoration{display:none}
   .header-search input::placeholder{color:var(--cream-dim)}
@@ -317,56 +316,38 @@
   /* ANIMATIONS */
   @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
-  /* iOS INPUT ZOOM FIX — Safari auto-zooms any input with font-size < 16px */
-  input, select, textarea { font-size: 16px !important; }
-  /* Kill double-tap zoom delay on all interactive elements */
-  button, a, select, input, textarea { touch-action: manipulation; }
-
   /* RESPONSIVE */
+  /* At viewport width=600, this breakpoint always fires on mobile */
   @media(max-width:620px){
-    /* Header — two rows: logo+buttons on top, search full-width below */
-    .site-header{
-      height:auto;flex-wrap:wrap;padding:8px 10px;gap:6px;
-    }
-    .logo{font-size:16px;letter-spacing:.02em;flex-shrink:0;order:1}
+    /* Header: compact but keep all labels */
+    .site-header{gap:6px;padding:0 10px;height:56px;flex-wrap:nowrap}
+    .logo{font-size:16px;flex-shrink:0}
     .logo span{display:none}
-    .header-search{order:3;flex:1 1 100%;max-width:100%;min-width:0}
-    .header-search input{padding:9px 32px 9px 12px;font-size:16px;width:100%}
-    .header-actions{order:2;gap:4px;flex-shrink:0;margin-left:auto}
-    /* Hide text labels, keep emoji only */
-    .stats-btn .btn-label,
-    .want-list-btn .btn-label,
-    .add-album-btn .btn-label,
-    .spin-btn .btn-label{display:none}
-    .stats-btn,.want-list-btn,.add-album-btn,.spin-btn{
-      padding:7px 9px;font-size:14px;gap:0;letter-spacing:0;min-width:36px;justify-content:center
+    .header-search{max-width:120px;flex-shrink:1;min-width:60px}
+    .header-search input{font-size:11px;padding:6px 28px 6px 8px}
+    .header-actions{gap:4px;flex-shrink:0}
+    .stats-btn,.want-list-btn,.add-album-btn{
+      padding:6px 7px;font-size:10px;gap:3px
     }
+    .spin-btn{padding:6px 8px;font-size:11px}
     /* Filter bar */
-    .filter-bar{padding:6px 10px;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-    .filter-bar::-webkit-scrollbar{display:none}
+    .filter-bar{padding:7px 10px;gap:5px;flex-wrap:nowrap;overflow-x:auto}
     .filter-label{display:none}
-    .filter-select{padding:7px 22px 7px 8px;font-size:13px;flex-shrink:0}
-    .fav-filter-btn{padding:7px 10px;font-size:13px;flex-shrink:0}
-    .sort-group{flex-shrink:0}
-    .sort-btn{padding:6px 8px;font-size:10px}
+    .filter-select{font-size:11px;padding:5px 20px 5px 8px}
+    .fav-filter-btn{font-size:11px;padding:5px 8px}
+    .sort-group{margin-left:auto;flex-shrink:0}
+    .sort-btn{font-size:10px;padding:5px 9px}
     /* 3-column grid */
-    .grid{padding:8px 8px 60px;gap:7px;grid-template-columns:repeat(3,1fr)}
+    .grid{padding:8px 8px 48px;gap:7px;grid-template-columns:repeat(3,1fr)}
     .card-body{padding:6px 7px 8px}
     .card-artist{font-size:8px;margin-bottom:1px}
     .card-title{font-size:11px;margin-bottom:3px}
     .card-meta{font-size:9px;gap:4px}
     .card-genre-tag{font-size:7px;padding:1px 4px}
-    /* Modals full-screen on mobile */
-    .modal-overlay{padding:0;align-items:flex-end}
-    .detail-modal,.add-modal,.wantlist-modal,.stats-modal{
-      border-radius:12px 12px 0 0;max-height:92vh;width:100%;max-width:100%
-    }
+    /* Detail modal */
     .detail-modal-header{grid-template-columns:1fr}
-    .detail-art-wrap{border-radius:12px 12px 0 0;aspect-ratio:16/9;max-height:180px}
+    .detail-art-wrap{border-radius:6px 6px 0 0;aspect-ratio:16/9;max-height:200px}
     .form-row{grid-template-columns:1fr}
-    .spin-modal{border-radius:12px 12px 0 0;width:100%;max-width:100%;padding:32px 24px 28px}
-    /* Results bar */
-    .results-info{padding:8px 10px 4px;font-size:11px}
   }
   @media(max-width:400px){.grid{grid-template-columns:repeat(3,1fr)}}
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -383,10 +364,10 @@
     <span class="search-icon">⌕</span>
   </div>
   <div class="header-actions">
-    <button class="stats-btn" id="statsBtn"><span>📊</span><span class="btn-label">Crate Diggin'</span></button>
-    <button class="want-list-btn" id="wantListBtn"><span>🎯</span><span class="btn-label">Wish List</span></button>
-    <button class="add-album-btn" id="addAlbumBtn"><span style="font-size:16px;line-height:1">＋</span><span class="btn-label">Add to Crate</span></button>
-    <button class="spin-btn" id="spinBtn">🎲 <span class="btn-label">Spin</span></button>
+    <button class="stats-btn" id="statsBtn"><span>📊</span><span>Stash Facts</span></button>
+    <button class="want-list-btn" id="wantListBtn"><span>🎯</span><span>Wish List</span></button>
+    <button class="add-album-btn" id="addAlbumBtn"><span style="font-size:16px;line-height:1">＋</span><span>Add to Crate</span></button>
+    <button class="spin-btn" id="spinBtn">🎲 Spin</button>
   </div>
 </header>
 
@@ -442,13 +423,13 @@
           </div>
           <div id="genreEditorWrap" style="display:none;margin-bottom:8px">
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              <select id="genreEditorSelect" style="background:var(--bg);border:1px solid var(--gold-dim);border-radius:3px;color:var(--cream);font-family:'Inter',sans-serif;font-size:16px;padding:5px 10px;outline:none;flex:1;min-width:140px"></select>
+              <select id="genreEditorSelect" style="background:var(--bg);border:1px solid var(--gold-dim);border-radius:3px;color:var(--cream);font-family:'Inter',sans-serif;font-size:12px;padding:5px 10px;outline:none;flex:1;min-width:140px"></select>
               <button onclick="saveGenreEdit()" style="background:var(--gold);border:none;border-radius:3px;color:var(--bg);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer">Save</button>
               <button onclick="closeGenreEditor()" style="background:none;border:1px solid var(--border);border-radius:3px;color:var(--cream-dim);font-family:'Inter',sans-serif;font-size:11px;padding:5px 10px;cursor:pointer">✕</button>
             </div>
             <div id="customGenreWrap" style="display:none;margin-top:6px">
               <div style="display:flex;gap:6px;align-items:center">
-                <input id="customGenreInput" placeholder="New genre name…" style="flex:1;background:var(--bg);border:1px solid var(--gold-dim);border-radius:3px;color:var(--cream);font-family:'Inter',sans-serif;font-size:16px;padding:5px 10px;outline:none">
+                <input id="customGenreInput" placeholder="New genre name…" style="flex:1;background:var(--bg);border:1px solid var(--gold-dim);border-radius:3px;color:var(--cream);font-family:'Inter',sans-serif;font-size:12px;padding:5px 10px;outline:none">
                 <button onclick="applyCustomGenre()" style="background:var(--gold);border:none;border-radius:3px;color:var(--bg);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;padding:5px 12px;cursor:pointer">Apply</button>
               </div>
             </div>
@@ -1482,115 +1463,13 @@ function getKnownTracklist(artist,title){
   return KNOWN_TRACKLISTS[key]||null;
 }
 
-// Fetch tracklist from iTunes and cache it in localStorage
-let itunesTrackCache=lsGet("crate_itunes_tracks",{});
-function saveItunesTrackCache(){lsSet("crate_itunes_tracks",itunesTrackCache)}
-
-async function fetchItunesTracklist(artist,title,year){
-  const ck=(artist+"|"+title).toLowerCase();
-  if(itunesTrackCache[ck]) return itunesTrackCache[ck];
-  try{
-    const q=encodeURIComponent(`${artist} ${title}`);
-    const r=await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=50`);
-    if(!r.ok) return null;
-    const d=await r.json();
-    if(!d.results||!d.results.length) return null;
-
-    // Find the best matching album — prefer year match
-    const normT=title.toLowerCase().replace(/[^a-z0-9]/g,"");
-    const normA=artist.toLowerCase().replace(/[^a-z0-9]/g,"");
-    const songs=d.results.filter(s=>s.wrapperType==="track"&&s.kind==="song");
-    if(!songs.length) return null;
-
-    // Group by collectionId and pick the best collection
-    const collections={};
-    songs.forEach(s=>{
-      const cid=s.collectionId;
-      if(!collections[cid]) collections[cid]={info:s,tracks:[]};
-      collections[cid].tracks.push(s);
-    });
-
-    let bestCol=null;
-    let bestScore=-1;
-    Object.values(collections).forEach(col=>{
-      const ct=(col.info.collectionName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-      const ca=(col.info.artistName||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-      let score=0;
-      if(ct===normT||ct.includes(normT)||normT.includes(ct)) score+=3;
-      if(ca===normA||ca.includes(normA)||normA.includes(ca)) score+=2;
-      if(year&&col.info.releaseDate&&Math.abs(parseInt(col.info.releaseDate)-year)<=1) score+=1;
-      if(score>bestScore){bestScore=score;bestCol=col;}
-    });
-
-    if(!bestCol||bestScore<2) return null;
-
-    // Sort tracks by disc + track number, split into sides
-    const sorted=bestCol.tracks.sort((a,b)=>(a.discNumber-b.discNumber)||((a.trackNumber||0)-(b.trackNumber||0)));
-    const discMap={};
-    sorted.forEach(t=>{
-      const d=t.discNumber||1;
-      if(!discMap[d]) discMap[d]=[];
-      discMap[d].push(t);
-    });
-    const sideLabels=["Side A","Side B","Side C","Side D","Side E","Side F"];
-    let sideIdx=0;
-    const sides=[];
-    Object.values(discMap).forEach(tracks=>{
-      const label=sideLabels[sideIdx++]||`Side ${sideIdx}`;
-      sides.push({label,tracks:tracks.map(t=>({
-        name:t.trackName||"",
-        dur:t.trackTimeMillis?msToMmSs(t.trackTimeMillis):""
-      }))});
-    });
-
-    if(!sides.length) return null;
-    const result={sides};
-    itunesTrackCache[ck]=result;
-    saveItunesTrackCache();
-    return result;
-  } catch(e){ return null; }
-}
-
-function msToMmSs(ms){
-  const s=Math.round(ms/1000);
-  return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
-}
-
 function buildTracklistTab(id){
   const a=vinylCollection.find(x=>x.id===id);if(!a)return;
   const fmt=formats[id]||"33";
   document.querySelectorAll("#formatToggle button").forEach(b=>b.classList.toggle("active",b.dataset.fmt===fmt));
-
-  // Priority 1: user's saved edits
-  if(tracklists[id]){ renderTracklist(tracklists[id]); wireFormatToggle(id); return; }
-
-  // Priority 2: hardcoded known tracklist
-  const known=getKnownTracklist(a.artist,a.title);
-  if(known){ renderTracklist(known); wireFormatToggle(id); return; }
-
-  // Priority 3: iTunes cache
-  const ck=(a.artist+"|"+a.title).toLowerCase();
-  if(itunesTrackCache[ck]){ renderTracklist(itunesTrackCache[ck]); wireFormatToggle(id); return; }
-
-  // Priority 4: fetch from iTunes, show loading state meanwhile
-  const blank={sides:[{label:"Side A",tracks:[{name:"",dur:""}]},{label:"Side B",tracks:[{name:"",dur:""}]}]};
-  renderTracklist(blank);
-  wireFormatToggle(id);
-
-  // Show loading indicator inside tracklist container
-  const container=document.getElementById("tracklistContainer");
-  container.insertAdjacentHTML("afterbegin",`<div id="tracklistLoading" style="font-size:11px;color:var(--cream-dim);padding:8px 0 12px;display:flex;align-items:center;gap:6px"><span style="animation:spin .8s linear infinite;display:inline-block">⟳</span> Looking up tracklist…</div>`);
-
-  fetchItunesTracklist(a.artist,a.title,a.year).then(tl=>{
-    if(!tl) return; // leave blank template if nothing found
-    // Only update if still on this album and user hasn't edited
-    if(currentDetailId!==id||tracklists[id]) return;
-    renderTracklist(tl);
-    wireFormatToggle(id);
-  });
-}
-
-function wireFormatToggle(id){
+  // Priority: user's saved edits → known tracklist → blank template
+  let tl=tracklists[id]||getKnownTracklist(a.artist,a.title)||{sides:[{label:"Side A",tracks:[{name:"",dur:""}]},{label:"Side B",tracks:[{name:"",dur:""}]}]};
+  renderTracklist(tl);
   document.querySelectorAll("#formatToggle button").forEach(b=>{
     b.onclick=()=>{formats[id]=b.dataset.fmt;saveFormats();document.getElementById("modalFormat").textContent=b.dataset.fmt+" RPM";document.querySelectorAll("#formatToggle button").forEach(x=>x.classList.toggle("active",x===b))};
   });
@@ -1749,9 +1628,6 @@ const ALBUM_FACTS = {
   "various artists|saturday night fever (soundtrack)|1977":{studio:"Various studios — primarily Middle Ear Studios, Miami",producer:"The Bee Gees, Karl Richardson & Albhy Galuten",facts:["Soundtrack to the John Travolta film that defined the disco era","One of the best-selling soundtracks in history — over 40 million copies sold worldwide","The Bee Gees wrote and recorded five original songs for the film in a single week","'Stayin' Alive' and 'Night Fever' both hit #1 in the US — both in the same year","Barry Gibb, Robin Gibb, and Maurice Gibb recorded their vocals in staggered shifts to maintain the energy","The album fundamentally changed the Bee Gees' career — they were seen as a middle-tier act before this; afterward they were superstars"]},
   "various artists|golden christmas favorites|1970":{studio:"Various studios",producer:"Various",facts:["Holiday compilation collecting classic Christmas standards from the golden age of American seasonal recordings","The 1970s saw a boom in budget holiday compilations as labels maximized catalog value at Christmas","Traditional songs like 'White Christmas' and 'O Holy Night' are perennial performers that sustain annual sales decades after recording","The era's production style — lush orchestral arrangements, warm reverb — gave these compilations a comforting, timeless feel","Holiday records occupy a unique place in vinyl culture — they're often found in perfect condition because they were played only one month a year","These compilations were staples of the seasonal gift-giving economy before streaming playlists replaced them"]},
   "cruisin|5 lp set|1970":{studio:"Various studios",producer:"Various",facts:["The Cruisin' series reproduced original radio broadcasts from rock and roll's formative years alongside the hit songs of each year","Each LP in the set recreates a specific year — a time capsule of American Top 40 radio","The sets featured recreated DJ patter from iconic disc jockeys of the era alongside original recordings","One of the most ambitious archival projects in pop history — capturing radio culture as much as music","The series ran from 1955 through the early 1970s, preserving the full arc of rock and roll's rise","A rare collectible — the sets are sought by music historians and vinyl enthusiasts alike"]},
-  "ben howard|burgh island|2017":{studio:"Burgh Island, Devon, England — recorded live on location",producer:"Ben Howard & Aaron Dessner",facts:["Named after and partially recorded on Burgh Island — a tidal island off the south Devon coast accessible only by sea tractor at high tide","The album grew out of a series of intimate live sessions Howard performed on the island itself, blurring the line between studio album and live document","Co-produced with Aaron Dessner of The National, whose fingerprints are all over the sparse, textured arrangements","Howard has spoken about Burgh Island as a place of deep personal significance — the isolation of the island directly shapes the album's mood of solitude and introspection","Released on Island Records, the album marked a sharp departure from the warmth of his debut — darker, more experimental, and far less commercial","The record was recorded in a highly unconventional way — sessions were spread across multiple intimate locations rather than a traditional studio, giving it an unusually raw, spatial quality","'She Treats Me Well' was the lead single — a tender, stripped-back meditation that showed Howard's gift for finding the emotional centre of a relationship in just a few lines","Howard grew up in Devon and the landscape of the south-west of England — its coastline, light, and weather — runs through the album's DNA","The album received widespread critical acclaim in the UK folk and singer-songwriter press, praised for its risk-taking and refusal to repeat the sound that made I Forget Where We Were a success","Burgh Island the place has its own remarkable history — Agatha Christie wrote two novels there and it was a favourite haunt of Edward and Wallis Simpson in the 1930s"]},
-  "ben howard|i forget where we were|2014":{studio:"RAK Studios, London & various locations",producer:"Ben Howard & Chris Bond",facts:["Howard's second studio album — a significant step away from the sun-drenched folk of Every Kingdom toward something more cinematic and melancholic","Debuted at #1 on the UK Albums Chart, cementing Howard as one of Britain's most important singer-songwriters","The title is taken from a line in 'End of the Affair' and captures the album's central theme of dislocation and lost time","Recorded partly at the legendary RAK Studios in London, founded by Mickie Most in the 1970s","'Conrad' and 'I Forget Where We Were' are centrepieces — long, slowly unfolding compositions that show his move toward a more atmospheric, less song-structured approach","Howard has described this album as the product of a difficult personal period — touring relentlessly after Every Kingdom left him creatively exhausted","Produced again with Chris Bond, who had helped shape the warmth of Every Kingdom but pushed here toward more textured, electric territory","Won the Ivor Novello Award for Best Album in 2015","The album's artwork — stark, wintry Devon landscapes — perfectly mirrors the emotional temperature of the music","Every Kingdom had gone platinum in the UK; this follow-up proved Howard wasn't interested in simply repeating that formula"]},
-  "ben howard|every kingdom|2011":{studio:"Real World Studios, Box, Wiltshire & RAK Studios, London",producer:"Ben Howard & Chris Bond",facts:["Debut studio album — recorded partly at Real World Studios in Wiltshire, the studio complex founded by Peter Gabriel","Won the Brit Award for Best British Male Solo Artist and Best British Breakthrough Act in 2012","'Old Pine' has become one of the defining songs of the early 2010s British folk revival — its imagery of Devon summers is strikingly vivid","Howard learned guitar in his bedroom in Devon and was busking in Exeter before being signed to Island Records","Produced with Chris Bond, the two built the album's sound around Howard's acoustic guitar and warm, open-tuning fingerpicking style","The album went platinum in the UK and Ireland, driven almost entirely by word of mouth and live reputation rather than radio play","'Keep Your Head Up' was the lead single — a song Howard has said was written for a friend going through a dark period","Howard was heavily influenced by the early Cat Stevens records and the storytelling simplicity of Neil Young","Every Kingdom captures a very specific feeling of young adulthood in rural England — space, friendship, summers that feel infinite","The album took several years to make properly — Howard refused to rush it despite label pressure, and the patience shows in its coherence"]},
 };
 
 
@@ -1899,10 +1775,7 @@ function extractRecordingInfo(extract){
   return { studio, producer };
 }
 
-// ── MUSICBRAINZ (label + release country only) ──
-// REMOVED — Wikipedia is the sole source now.
-
-// ── MAIN FETCH ORCHESTRATOR ──
+// ── MAIN FETCH ORCHESTRATOR (Wikipedia only) ──
 async function fetchAlbumAbout(artist, title, year){
   const cacheKey = (artist + "|" + title).toLowerCase();
   if(mbAboutCache[cacheKey]) return mbAboutCache[cacheKey];
@@ -1959,7 +1832,7 @@ function renderAboutData(container, a, data){
       ? `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(data.wikiTitle)}" target="_blank" rel="noopener"
            style="font-size:9px;color:var(--cream-dim);letter-spacing:.06em;text-decoration:none;border-bottom:1px dotted var(--cream-dim);opacity:.7">
            Wikipedia ↗</a>`
-      : `<span style="font-size:9px;color:var(--cream-dim);letter-spacing:.06em;opacity:.7">via MusicBrainz</span>`
+      : `<span style="font-size:9px;color:var(--cream-dim);letter-spacing:.06em;opacity:.7">via Wikipedia</span>`
     : "";
 
   container.innerHTML=`
@@ -2031,7 +1904,7 @@ function buildAboutTab(id){
       renderAboutData(stillContainer, a, data);
     } else {
       const msg = stillContainer.querySelector("#mbLoadingMsg");
-      if(msg) msg.innerHTML=`<div style="font-size:20px;margin-bottom:8px">📀</div>No detailed info found in the MusicBrainz database for this release. Try adding notes in the Notes tab!`;
+      if(msg) msg.innerHTML=`<div style="font-size:20px;margin-bottom:8px">📀</div>No detailed info found on Wikipedia for this release. Try adding notes in the Notes tab!`;
     }
   });
 }
@@ -2212,7 +2085,7 @@ async function searchAlbums(){
 
 function addAlbumFromSearch(item,isDuplicate=false){
   const year=item.releaseDate?parseInt(item.releaseDate):new Date().getFullYear();
-  const album={id:nextId++,artist:item.artistName||"Unknown Artist",title:item.collectionName||"Unknown Album",year,genre:"Classic Rock",condition:"VG+",decade:Math.floor(year/10)*10,_itunesArt:item.artworkUrl100?item.artworkUrl100.replace("100x100bb","400x400bb"):null,_itunesCollectionId:item.collectionId||null};
+  const album={id:nextId++,artist:item.artistName||"Unknown Artist",title:item.collectionName||"Unknown Album",year,genre:"Classic Rock",condition:"VG+",decade:Math.floor(year/10)*10,_itunesArt:item.artworkUrl100?item.artworkUrl100.replace("100x100bb","400x400bb"):null};
   vinylCollection.push(album);
   if(album._itunesArt){caaCache[(album.artist+"|"+album.title).toLowerCase()]=album._itunesArt;saveCaaCache()}
   const ua=lsGet("crate_user_albums",[]);ua.push(album);lsSet("crate_user_albums",ua);
@@ -2221,8 +2094,6 @@ function addAlbumFromSearch(item,isDuplicate=false){
   document.getElementById("searchResultsList").innerHTML="";
   document.getElementById("addSearchInput").value="";
   showToast(`✓ "${album.title}" added${isDuplicate?" (duplicate copy)":""}`);
-  // Pre-fetch tracklist and about data in background
-  fetchItunesTracklist(album.artist, album.title, album.year);
   prefetchAboutData(album.artist, album.title, album.year);
 }
 
@@ -2501,17 +2372,6 @@ function showToast(msg){
   const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2400);
 }
-
-// ── iOS ZOOM FIX — JS safety net for dynamically created inputs ──
-// Inline styles beat CSS !important, so we patch font-size on focus for any
-// input/select/textarea that slipped through with a size < 16px.
-document.addEventListener("focusin", function(e){
-  const el = e.target;
-  if(el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA"){
-    const fs = parseFloat(window.getComputedStyle(el).fontSize);
-    if(fs < 16){ el.style.fontSize = "16px"; }
-  }
-}, true);
 
 // ── INIT ──
 // Always apply Discogs overrides — they win over any cached iTunes URLs
