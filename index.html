@@ -400,6 +400,9 @@
             <button class="detail-heart-btn" id="detailHeartBtn" onclick="toggleFavoriteFromModal()">
               <span id="detailHeartIcon">♡</span><span id="detailHeartLabel">Favorite</span>
             </button>
+            <button class="detail-heart-btn" id="detailRemoveBtn" onclick="removeFromCrateFromModal()" style="margin-left:auto;border-color:var(--red-bright);color:var(--red-bright);" title="Remove this record from your crate">
+              <span>🗑</span><span>Remove</span>
+            </button>
           </div>
           <div id="genreEditorWrap" style="display:none;margin-bottom:8px">
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -595,7 +598,7 @@ function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
 
 // ── COVER ART (iTunes) ──
-const CAA_KEY="crate_coverart_cache_v4";
+const CAA_KEY="crate_coverart_cache_v5";
 let caaCache=lsGet(CAA_KEY,{});
 Object.keys(caaCache).forEach(k=>{if(!caaCache[k])delete caaCache[k]});
 function saveCaaCache(){lsSet(CAA_KEY,caaCache)}
@@ -604,35 +607,48 @@ function saveCaaCache(){lsSet(CAA_KEY,caaCache)}
 // Some albums need a hand-tuned iTunes search term to find the right cover
 // (self-titled records, compilations, or names iTunes catalogs differently).
 const COVER_QUERY_OVERRIDES = {
-  // Obscure Southern-rock debut — search by full band name + title
+  // The Cars self-titled debut (1978)
+  "the cars|the cars":"The Cars 1978",
+  // The Babys Union Jacks (1980)
+  "the babys|union jacks":"The Babys Union Jacks 1980",
+  // Pink Floyd Dark Side of the Moon
+  "pink floyd|the dark side of the moon":"Pink Floyd Dark Side of the Moon 1973",
+  // Pink Floyd Animals
+  "pink floyd|animals":"Pink Floyd Animals 1977",
+  // Pearl Jam Ten
+  "pearl jam|ten":"Pearl Jam Ten 1991",
+  // Mose Jones Blackbird — obscure Southern-rock album
   "mose jones|blackbird":"Mose Jones Blackbird",
-  // UK hits comp — iTunes indexes under "Electric Light Orchestra", accented title varies
-  "electric light orchestra|olé elo":"Electric Light Orchestra Ole ELO",
-  // 1975 Pickwick budget double-LP — keep exact title for best chance
-  "elvis presley|double dynamite":"Elvis Presley Double Dynamite",
-  // Multi-LP budget comp — drop the redundant "Elvis" prefix from the search
-  "elvis presley|elvis the legend lives on":"Elvis Presley Legend Lives On",
-  // Self-titled debut — year disambiguates from later releases
+  // Jimi Hendrix High Live 'n' Dirty (1978 Nutmeg budget live LP)
+  "jimi hendrix|high, live 'n' dirty":"Jimi Hendrix High Live Dirty 1978",
+  // Green Day American Idiot
+  "green day|american idiot":"Green Day American Idiot 2004",
+  // Foreigner self-titled debut (1977)
   "foreigner|foreigner":"Foreigner 1977",
-  // Correct album title is "Shinin' On" (1974) — key updated to match fixed collection entry
+  // Elvis Presley Gold Records Volume 5 (1984)
+  "elvis presley|gold records volume 5":"Elvis Presley Gold Records Volume 5",
+  // Elvis The Legend Lives On (budget compilation)
+  "elvis presley|elvis the legend lives on":"Elvis Presley Legend Lives On",
+  // Elvis Double Dynamite (1975 Pickwick budget double-LP)
+  "elvis presley|double dynamite":"Elvis Presley Double Dynamite",
+  // ELO Greatest Hits
+  "electric light orchestra|greatest hits":"Electric Light Orchestra Greatest Hits 1979",
+  // Eddie and the Cruisers Soundtrack (1983)
+  "eddie and the cruisers|soundtrack":"Eddie Cruisers Soundtrack 1983",
+  "eddie and the cruisers|soundtrack (alt press)":"Eddie Cruisers Soundtrack 1983",
+  // Chicago self-titled debut (double LP, 1969) — disambiguate from later Chicago albums
+  "chicago|chicago":"Chicago Transit Authority 1969",
+  // Babys Union Jacks (alternate key without "the")
+  "babys|union jacks":"The Babys Union Jacks 1980",
+  // UK hits comp — iTunes indexes under "Electric Light Orchestra"
+  "electric light orchestra|olé elo":"Electric Light Orchestra Ole ELO",
+  // Grand Funk Railroad
   "grand funk railroad|shinin' on":"Grand Funk Railroad Shinin On 1974",
-  // Widely catalogued — plain query is reliable
-  "green day|american idiot":"Green Day American Idiot",
-  // 1978 Nutmeg budget live LP — approximated for iTunes search
-  "jimi hendrix|high, live 'n' dirty":"Jimi Hendrix High Live Dirty",
-  // 1969 Reprise compilation — straightforward match
-  "jimi hendrix|smash hits":"Jimi Hendrix Smash Hits",
-  // iTunes catalogs this under "John Mellencamp" not "John Cougar Mellencamp"
+  "grand funk|shine on":"Grand Funk Railroad Shinin On 1974",
+  // Widely catalogued
   "john cougar mellencamp|uh-huh":"John Mellencamp Uh Huh 1983",
   "lynyrd skynyrd|give me back my bullets":"Lynyrd Skynyrd Give Me Back My Bullets",
-  "pearl jam|ten":"Pearl Jam Ten",
-  "pink floyd|animals":"Pink Floyd Animals",
-  "pink floyd|the dark side of the moon":"Pink Floyd Dark Side of the Moon",
-  // Drop "The" from artist to catch both "Babys" and "The Babys" iTunes entries
-  "the babys|union jacks":"Babys Union Jacks",
-  // Year disambiguates the debut from later self-titled re-issues
-  "the cars|the cars":"The Cars 1978",
-  // Short title — keep artist anchored in the query
+  "jimi hendrix|smash hits":"Jimi Hendrix Smash Hits",
   "the doors|13":"The Doors 13"
 };
 
@@ -1297,6 +1313,14 @@ function deleteAlbum(id){
   const idx=vinylCollection.findIndex(x=>x.id===id);if(idx!==-1)vinylCollection.splice(idx,1);
   const ua=lsGet("crate_user_albums",[]).filter(x=>x.id!==id);lsSet("crate_user_albums",ua);
   favorites.delete(id);saveFavorites();buildFilters();render();showToast("Record removed from crate");
+}
+function removeFromCrateFromModal(){
+  if(!currentDetailId)return;
+  const a=vinylCollection.find(x=>x.id===currentDetailId);
+  if(!a)return;
+  if(!confirm(`Remove "${a.title}" by ${a.artist} from your crate?`))return;
+  document.getElementById("detailModal").classList.remove("open");
+  deleteAlbum(currentDetailId);
 }
 
 // ── DETAIL MODAL ──
