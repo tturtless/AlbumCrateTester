@@ -1896,11 +1896,20 @@ async function fetchWikipediaAlbum(artist, title, year){
 // ── EXTRACT STRUCTURED FACTS FROM WIKIPEDIA TEXT ──
 function parseWikipediaExtract(extract, artist, title, year){
   // Split into sentences
-  const rawSentences = extract
+  let rawSentences = extract
     .replace(/\n+/g, " ")
     .split(/(?<=[.!?])\s+(?=[A-Z"'(])/)
     .map(s => s.trim())
     .filter(s => s.length > 25 && s.length < 500);
+
+  // Drop any sentence referencing "666" (numerology trivia, track numbers, etc.) —
+  // not useful as an "about" fact and not something we want surfacing here.
+  rawSentences = rawSentences.filter(s => !/666/.test(s));
+  // Extra backstop specifically for Avenged Sevenfold: never let a 666-flavored
+  // sentence through for this artist even if some other 666-adjacent phrasing slips by.
+  if(/avenged sevenfold/i.test(artist||"")){
+    rawSentences = rawSentences.filter(s => !/\b6+\s*6+\s*6+\b|six\s+six\s+six/i.test(s));
+  }
 
   const INTEREST_PATTERNS = [
     /\b(recorded|recording|studio|produced|producer|sessions?)\b/i,
@@ -2669,6 +2678,20 @@ function showToast(msg){
 // Always apply Discogs overrides — they win over any cached iTunes URLs
 Object.entries(DISCOGS_COVERS).forEach(([k,url])=>{ caaCache[k]=url; });
 saveCaaCache();
+// One-time cleanup: purge any previously-cached About facts that slipped in a
+// "666" reference before the filter above existed, so they get re-fetched clean.
+(function purgeStale666Facts(){
+  let changed=false;
+  Object.keys(mbAboutCache).forEach(key=>{
+    const entry=mbAboutCache[key];
+    const facts=entry&&entry.facts;
+    if(Array.isArray(facts)&&facts.some(f=>/666/.test(f))){
+      delete mbAboutCache[key];
+      changed=true;
+    }
+  });
+  if(changed)saveMbAboutCache();
+})();
 buildFilters();render();
 </script>
 </body>
