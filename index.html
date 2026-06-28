@@ -196,7 +196,7 @@
   .add-search-btn{background:var(--gold);border:none;border-radius:3px;color:var(--bg);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:9px 16px;cursor:pointer;transition:background .2s;white-space:nowrap}
   .add-search-btn:hover{background:#DFB95C}
   .add-search-btn:disabled{opacity:.5;cursor:not-allowed}
-  .search-results-list{margin-top:12px;display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto}
+  .search-results-list{margin-top:12px;display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto}
   .search-result-row{display:flex;align-items:center;gap:12px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:3px;transition:border-color .15s}
   .search-result-row:hover{border-color:var(--gold-dim)}
   .search-result-thumb{width:44px;height:44px;border-radius:2px;object-fit:cover;background:var(--groove);flex-shrink:0}
@@ -229,7 +229,7 @@
 
   /* AUTOCOMPLETE DROPDOWN */
   .autocomplete-wrap{position:relative;flex:1}
-  .autocomplete-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--gold-dim);border-top:none;border-radius:0 0 4px 4px;z-index:50;max-height:260px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.7)}
+  .autocomplete-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--gold-dim);border-top:none;border-radius:0 0 4px 4px;z-index:50;max-height:400px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.7)}
   .autocomplete-dropdown.open{display:block}
   .ac-row{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--border)}
   .ac-row:last-child{border-bottom:none}
@@ -752,7 +752,10 @@ async function fetchMusicBrainz(q,limit){
 // artist+title so the same album found on multiple services only shows up once.
 // iTunes results are kept first since they reliably include artwork; Discogs and
 // MusicBrainz fill in whatever iTunes' catalog is missing.
-async function fetchAlbumSearch(q,limit=10){
+// `limit` here is a per-source fetch cap (how many each API is asked for), NOT a
+// cap on the final merged list — artists with deep discographies should see every
+// match the sources return, with the dropdown/list scrolling instead of truncating.
+async function fetchAlbumSearch(q,limit=50){
   const [itunesRes,discogsRes,mbRes]=await Promise.all([
     fetchItunes(q,limit),
     fetchDiscogs(q,limit),
@@ -766,7 +769,7 @@ async function fetchAlbumSearch(q,limit=10){
     seen.add(key);
     merged.push(item);
   });
-  return merged.slice(0,limit);
+  return merged; // no artificial cap — let the scrollable container handle long lists
 }
 
 // ── COVER ART (iTunes) ──
@@ -2299,7 +2302,7 @@ const addDebounce=debounce(async(q)=>{
   const drop=document.getElementById("addAutoDropdown");
   drop.innerHTML=`<div class="ac-spinner">Searching…</div>`;drop.classList.add("open");
   try{
-    const results=await fetchAlbumSearch(q,8);
+    const results=await fetchAlbumSearch(q,50);
     buildAcDropdown(drop,results,(item)=>{
       addAlbumFromSearch(item,albumExistsInCrate(item.artistName||"",item.collectionName||""));
       closeAutocomplete("addAutoDropdown");
@@ -2322,11 +2325,12 @@ async function searchAlbums(){
   const btn=document.getElementById("addSearchBtn"),list=document.getElementById("searchResultsList");
   btn.disabled=true;btn.textContent="Searching";btn.classList.add("loading-dots");list.innerHTML="";
   try{
-    const results=await fetchAlbumSearch(q,12);
+    const results=await fetchAlbumSearch(q,50);
     btn.disabled=false;btn.textContent="Search";btn.classList.remove("loading-dots");
     if(!results.length){list.innerHTML=`<p style="font-size:12px;color:var(--cream-dim);padding:8px 0;">No results found. Try a different search or add manually below.</p>`;return}
 
-    list.innerHTML=results.map((item,i)=>{
+    const countHeader=`<div style="font-size:11px;color:var(--cream-dim);padding:0 2px 4px;letter-spacing:.04em">${results.length} result${results.length!==1?'s':''}${results.length>10?' — scroll for more':''}</div>`;
+    list.innerHTML=countHeader+results.map((item,i)=>{
       const isDup=albumExistsInCrate(item.artistName||"",item.collectionName||"");
       const srcTag=item._src==="discogs"?`<span class="search-result-src" title="Source: Discogs">Discogs</span>`:item._src==="musicbrainz"?`<span class="search-result-src" title="Source: MusicBrainz">MusicBrainz</span>`:`<span class="search-result-src" title="Source: iTunes">iTunes</span>`;
       const btnHtml=isDup
@@ -2399,7 +2403,7 @@ const wantDebounce=debounce(async(q)=>{
   const drop=document.getElementById("wantAutoDropdown");
   drop.innerHTML=`<div class="ac-spinner">Searching…</div>`;drop.classList.add("open");
   try{
-    const results=await fetchAlbumSearch(q,8);
+    const results=await fetchAlbumSearch(q,50);
     buildAcDropdown(drop,results,(item)=>{
       _wantSelectedItem=item;
       document.getElementById("wantSearchInput").value=`${item.collectionName||""} — ${item.artistName||""}`;
