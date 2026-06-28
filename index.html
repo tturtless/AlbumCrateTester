@@ -324,33 +324,49 @@
 
   /* RESPONSIVE */
   @media(max-width:620px){
-    /* Header — single row, scaled to fit iPhone */
-    .site-header{height:52px;padding:0 8px;gap:6px}
-    .logo{font-size:15px;letter-spacing:.02em;flex-shrink:0}
+    /* Header — two rows: logo+buttons on top, search full-width below */
+    .site-header{
+      height:auto;flex-wrap:wrap;padding:8px 10px;gap:6px;
+    }
+    .logo{font-size:16px;letter-spacing:.02em;flex-shrink:0;order:1}
     .logo span{display:none}
-    .header-search{flex:1;min-width:0;max-width:none}
-    .header-search input{padding:7px 28px 7px 10px}
-    .header-actions{gap:4px;flex-shrink:0}
-    .stats-btn,.want-list-btn,.add-album-btn,.spin-btn{padding:6px 8px;font-size:11px;gap:3px;letter-spacing:0}
-    .stats-btn span:first-child,.want-list-btn span:first-child{font-size:11px}
+    .header-search{order:3;flex:1 1 100%;max-width:100%;min-width:0}
+    .header-search input{padding:9px 32px 9px 12px;font-size:16px;width:100%}
+    .header-actions{order:2;gap:4px;flex-shrink:0;margin-left:auto}
+    /* Hide text labels, keep emoji only */
+    .stats-btn .btn-label,
+    .want-list-btn .btn-label,
+    .add-album-btn .btn-label,
+    .spin-btn .btn-label{display:none}
+    .stats-btn,.want-list-btn,.add-album-btn,.spin-btn{
+      padding:7px 9px;font-size:14px;gap:0;letter-spacing:0;min-width:36px;justify-content:center
+    }
     /* Filter bar */
-    .filter-bar{padding:6px 8px;gap:5px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .filter-bar{padding:6px 10px;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .filter-bar::-webkit-scrollbar{display:none}
     .filter-label{display:none}
-    .filter-select{padding:5px 22px 5px 8px}
-    .fav-filter-btn{padding:5px 10px}
-    .sort-group{margin-left:auto;flex-shrink:0}
-    .sort-btn{padding:5px 8px;font-size:10px}
+    .filter-select{padding:7px 22px 7px 8px;font-size:13px;flex-shrink:0}
+    .fav-filter-btn{padding:7px 10px;font-size:13px;flex-shrink:0}
+    .sort-group{flex-shrink:0}
+    .sort-btn{padding:6px 8px;font-size:10px}
     /* 3-column grid */
-    .grid{padding:8px 8px 48px;gap:7px;grid-template-columns:repeat(3,1fr)}
+    .grid{padding:8px 8px 60px;gap:7px;grid-template-columns:repeat(3,1fr)}
     .card-body{padding:6px 7px 8px}
     .card-artist{font-size:8px;margin-bottom:1px}
     .card-title{font-size:11px;margin-bottom:3px}
     .card-meta{font-size:9px;gap:4px}
     .card-genre-tag{font-size:7px;padding:1px 4px}
-    /* Detail modal */
+    /* Modals full-screen on mobile */
+    .modal-overlay{padding:0;align-items:flex-end}
+    .detail-modal,.add-modal,.wantlist-modal,.stats-modal{
+      border-radius:12px 12px 0 0;max-height:92vh;width:100%;max-width:100%
+    }
     .detail-modal-header{grid-template-columns:1fr}
-    .detail-art-wrap{border-radius:6px 6px 0 0;aspect-ratio:16/9;max-height:200px}
+    .detail-art-wrap{border-radius:12px 12px 0 0;aspect-ratio:16/9;max-height:180px}
     .form-row{grid-template-columns:1fr}
+    .spin-modal{border-radius:12px 12px 0 0;width:100%;max-width:100%;padding:32px 24px 28px}
+    /* Results bar */
+    .results-info{padding:8px 10px 4px;font-size:11px}
   }
   @media(max-width:400px){.grid{grid-template-columns:repeat(3,1fr)}}
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -367,10 +383,10 @@
     <span class="search-icon">⌕</span>
   </div>
   <div class="header-actions">
-    <button class="stats-btn" id="statsBtn"><span>📊</span><span>Crate Diggin'</span></button>
-    <button class="want-list-btn" id="wantListBtn"><span>🎯</span><span>Wish List</span></button>
-    <button class="add-album-btn" id="addAlbumBtn"><span style="font-size:16px;line-height:1">＋</span><span>Add to Crate</span></button>
-    <button class="spin-btn" id="spinBtn">🎲 Spin</button>
+    <button class="stats-btn" id="statsBtn"><span>📊</span><span class="btn-label">Crate Diggin'</span></button>
+    <button class="want-list-btn" id="wantListBtn"><span>🎯</span><span class="btn-label">Wish List</span></button>
+    <button class="add-album-btn" id="addAlbumBtn"><span style="font-size:16px;line-height:1">＋</span><span class="btn-label">Add to Crate</span></button>
+    <button class="spin-btn" id="spinBtn">🎲 <span class="btn-label">Spin</span></button>
   </div>
 </header>
 
