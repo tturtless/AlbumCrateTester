@@ -68,6 +68,7 @@
   .card-genre-tag{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.75);border:1px solid var(--gold-dim);border-radius:2px;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);padding:2px 6px;backdrop-filter:blur(4px);pointer-events:none}
   .card-overlay-btns{position:absolute;top:6px;right:6px;display:flex;flex-direction:column;gap:4px;z-index:5;opacity:0;transition:opacity .2s}
   .card:hover .card-overlay-btns{opacity:1}
+  @media(hover:none){.card-overlay-btns{opacity:1}}
   .card-icon-btn{width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,transform .1s;backdrop-filter:blur(4px);font-size:13px;color:var(--cream-dim);flex-shrink:0}
   .card-icon-btn:hover{background:rgba(30,30,30,.95);transform:scale(1.1)}
   .card-icon-btn.fav-active{color:var(--heart)}
@@ -108,7 +109,7 @@
   .photo-upload-overlay .upload-icon{font-size:28px}
   .photo-menu{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:4px;min-width:160px;box-shadow:0 6px 20px rgba(0,0,0,.7);z-index:10;overflow:hidden;animation:popIn .15s ease both}
   .detail-info{padding:20px 24px 20px 20px;display:flex;flex-direction:column;justify-content:space-between;min-height:220px}
-  .detail-actions-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .detail-actions-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
   .detail-heart-btn{background:none;border:1px solid var(--border);border-radius:3px;color:var(--cream-dim);font-size:14px;padding:6px 10px;cursor:pointer;transition:border-color .15s,color .15s,background .15s;display:flex;align-items:center;gap:5px;font-family:'Inter',sans-serif;font-size:11px;font-weight:600}
   .detail-heart-btn.active{border-color:var(--heart);color:var(--heart);background:rgba(224,80,80,.08)}
   .detail-genre-pill{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border:1px solid var(--gold-dim);border-radius:2px;padding:3px 8px}
@@ -400,6 +401,9 @@
             <button class="detail-heart-btn" id="detailHeartBtn" onclick="toggleFavoriteFromModal()">
               <span id="detailHeartIcon">♡</span><span id="detailHeartLabel">Favorite</span>
             </button>
+            <button class="detail-heart-btn" id="detailDeleteBtn" onclick="deleteAlbum(currentDetailId)" style="color:var(--red-bright);border-color:var(--red-bright)">
+              <span>🗑</span><span>Remove from Crate</span>
+            </button>
           </div>
           <div id="genreEditorWrap" style="display:none;margin-bottom:8px">
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -595,7 +599,7 @@ function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
 
 // ── COVER ART (iTunes) ──
-const CAA_KEY="crate_coverart_cache_v3";
+const CAA_KEY="crate_coverart_cache_v4";
 let caaCache=lsGet(CAA_KEY,{});
 Object.keys(caaCache).forEach(k=>{if(!caaCache[k])delete caaCache[k]});
 function saveCaaCache(){lsSet(CAA_KEY,caaCache)}
@@ -710,9 +714,10 @@ function refreshAllCovers(){
   retryCount=0;clearTimeout(retryTimer);
   document.querySelectorAll(".card-art img[data-artist]").forEach(img=>{
     const ck=(img.dataset.artist+"|"+img.dataset.title).toLowerCase();
-    if(!caaCache[ck])coverQueue.push({img,artist:img.dataset.artist,title:img.dataset.title,year:+img.dataset.year||0});
-    else img.src=caaCache[ck];
+    delete caaCache[ck]; // force a fresh lookup instead of reusing a possibly-wrong cached cover
+    coverQueue.push({img,artist:img.dataset.artist,title:img.dataset.title,year:+img.dataset.year||0});
   });
+  saveCaaCache();
   failedLookups.clear();if(coverQueue.length>0)drainCoverQueue();
 }
 
@@ -1265,6 +1270,7 @@ function deleteAlbum(id){
   const idx=vinylCollection.findIndex(x=>x.id===id);if(idx!==-1)vinylCollection.splice(idx,1);
   const ua=lsGet("crate_user_albums",[]).filter(x=>x.id!==id);lsSet("crate_user_albums",ua);
   favorites.delete(id);saveFavorites();buildFilters();render();showToast("Record removed from crate");
+  if(currentDetailId===id){document.getElementById("detailModal").classList.remove("open");currentDetailId=null}
 }
 
 // ── DETAIL MODAL ──
