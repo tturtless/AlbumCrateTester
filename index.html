@@ -569,13 +569,11 @@
       <span class="wantlist-count" id="wantlistCount">0 records</span>
     </div>
     <div class="wantlist-add-row">
-      <input class="wantlist-input" id="wantArtistInput" placeholder="Artist name…" autocomplete="off">
       <div class="autocomplete-wrap" id="wantAutoWrap" style="flex:1">
-        <input class="wantlist-input" id="wantTitleInput" placeholder="Album title — starts searching as you type…" autocomplete="off" style="width:100%">
+        <input class="wantlist-input" id="wantSearchInput" placeholder="Search artist or album — results appear as you type…" autocomplete="off" style="width:100%">
         <div class="autocomplete-dropdown" id="wantAutoDropdown"></div>
       </div>
-      <input class="wantlist-input" id="wantYearInput" placeholder="Year" style="max-width:72px;">
-      <button class="wantlist-add-btn" onclick="addWantItem()">＋ Add</button>
+      <button class="wantlist-add-btn" id="wantManualAddBtn" onclick="addWantManual()">＋ Add Manually</button>
     </div>
     <div class="wantlist-list" id="wantlistList"></div>
   </div>
@@ -1696,43 +1694,44 @@ function parseWikipediaExtract(extract, artist, title, year){
     .replace(/\n+/g, " ")
     .split(/(?<=[.!?])\s+(?=[A-Z"'(])/)
     .map(s => s.trim())
-    .filter(s => s.length > 30 && s.length < 400);
+    .filter(s => s.length > 25 && s.length < 500);
 
-  // Score sentences by interest — look for specific signal phrases
   const INTEREST_PATTERNS = [
     /\b(recorded|recording|studio|produced|producer|sessions?)\b/i,
-    /\b(released|release date|debut|issued)\b/i,
-    /\b(chart|billboard|uk|#\d|number one|peaked|reached)\b/i,
-    /\b(grammy|award|certif|platinum|gold|million copies)\b/i,
-    /\b(written|composed|lyric|inspired|influence)\b/i,
-    /\b(band|member|lineup|join|left|fired|quit|formed)\b/i,
-    /\b(critic|reception|review|acclaim|praised|call(ed)?)\b/i,
-    /\b(first|original|only|never|last|final|debut)\b/i,
-    /\b(sold|sales|commercial|success|failure|flop)\b/i,
-    /\b(tour|concert|live|perform)\b/i,
-    /\b(\d{4}|\$[\d,.]+|[\d,]+ copies|week[s]?)\b/i,
+    /\b(released|release date|debut|issued|launch)\b/i,
+    /\b(chart|billboard|uk|#\d|number one|peaked|reached|top\s*\d)\b/i,
+    /\b(grammy|award|certif|platinum|gold|million copies|bestsell)\b/i,
+    /\b(written|composed|lyric|inspired|influence|penned)\b/i,
+    /\b(band|member|lineup|join|left|fired|quit|formed|broke up|reunite)\b/i,
+    /\b(critic|reception|review|acclaim|praised|called|regarded|considered)\b/i,
+    /\b(first|original|only|never|last|final|debut|sole)\b/i,
+    /\b(sold|sales|commercial|success|failure|flop|copies)\b/i,
+    /\b(tour|concert|live|perform|show)\b/i,
+    /\b(\d{4}|\$[\d,.]+|[\d,]+ copies|week[s]?|month[s]?)\b/i,
+    /\b(cover|sample|interpolat|replac|feature|collaborat)\b/i,
+    /\b(label|signed|contract|columbia|atlantic|warner|capitol|decca|motown|rca|arista|elektra|geffen|island|polydor)\b/i,
+    /\b(guitar|bass|drum|keyboard|vocal|horn|string|orches|arrange)\b/i,
   ];
 
   function scoreS(s){
     let score = 0;
     INTEREST_PATTERNS.forEach(p => { if(p.test(s)) score++; });
-    // Penalise very generic openers
     if(/^The album is /.test(s)) score -= 0.5;
     if(/^It is /.test(s)) score -= 0.5;
+    if(/^This is /.test(s)) score -= 0.5;
+    if(/\b(19|20)\d{2}\b/.test(s)) score += 0.5;
     return score;
   }
 
-  // Take intro (first 2 sentences always) + top-scored remaining ones
-  const intro = rawSentences.slice(0, 2);
-  const rest  = rawSentences.slice(2);
+  const intro = rawSentences.slice(0, 3);
+  const rest  = rawSentences.slice(3);
   const ranked = rest
     .map(s => ({ s, score: scoreS(s) }))
     .filter(x => x.score >= 1)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
+    .slice(0, 7)
     .map(x => x.s);
 
-  // Deduplicate and combine
   const all = [...intro, ...ranked];
   const seen = new Set();
   const facts = all.filter(s => {
@@ -1740,39 +1739,56 @@ function parseWikipediaExtract(extract, artist, title, year){
     if(seen.has(k)) return false;
     seen.add(k);
     return true;
-  }).slice(0, 7);
+  }).slice(0, 10);
 
-  return facts.length ? facts : rawSentences.slice(0, 4);
+  return facts.length ? facts : rawSentences.slice(0, 5);
 }
 
-// ── PULL STUDIO / PRODUCER FROM WIKIPEDIA TEXT ──
+// ── PULL STUDIO / PRODUCER / EXTRA METADATA FROM WIKIPEDIA TEXT ──
 function extractRecordingInfo(extract){
   let studio = "";
   let producer = "";
+  let label = "";
+  let released = "";
+  let recorded = "";
 
-  // Studio patterns
   const studioPatterns = [
-    /recorded at ([A-Z][^,.]{3,50}(?:Studios?|Studio|Sound|Recording|Room)[^,.]*)/i,
-    /at ([A-Z][^,.]{3,50}(?:Studios?|Studio|Sound))[,.\s]/i,
-    /([A-Z][^,.]{3,50}(?:Studios?|Studio))[,\s]+(?:in|located)/i,
+    /recorded(?:\s+(?:at|in|primarily at|mainly at|partly at))\s+([A-Z][^,.]{3,60}(?:Studios?|Studio|Sound|Recording|Room|Centre|Center)[^,.]{0,30})/i,
+    /(?:at|in)\s+([A-Z][^,.]{3,60}(?:Studios?|Studio|Sound|Recording)[^,.]{0,20})/i,
+    /([A-Z][^,.]{3,60}(?:Studios?|Studio))[,\s]+(?:in|located|where)/i,
   ];
   for(const p of studioPatterns){
     const m = extract.match(p);
-    if(m){ studio = m[1].trim().replace(/\s+/g," "); break; }
+    if(m){ studio = m[1].trim().replace(/\s+/g," ").replace(/[,.]$/, ""); break; }
   }
 
-  // Producer patterns
   const producerPatterns = [
-    /produced by ([A-Z][^,.]{3,60}?)(?:\s+and\s+([A-Z][^,.]{3,40}?))?[,.\s]/i,
-    /production (?:was handled |)by ([A-Z][^,.]{3,60}?)[,.\s]/i,
-    /([A-Z][^,.]{3,40}?) (?:served as |)(?:co-)?produc(?:ed|er|ing)/i,
+    /produced by ([A-Z][^,.]{2,60}?)(?:\s*,\s*([A-Z][^,.]{2,40}?))?(?:\s+and\s+([A-Z][^,.]{2,40}?))?[,.]/i,
+    /production(?:\s+(?:was|were))?(?:\s+(?:handled|overseen|done))?\s+by\s+([A-Z][^,.]{2,60}?)[,.]/i,
+    /([A-Z][^,.]{2,40}?)\s+(?:served as |acted as |)(co-)?produc(?:ed|er|ing)\s+(?:the album|it)/i,
   ];
   for(const p of producerPatterns){
     const m = extract.match(p);
-    if(m){ producer = m[1].trim().replace(/\s+/g," "); break; }
+    if(m){ producer = m[1].trim().replace(/\s+/g," ").replace(/[,.]$/, ""); break; }
   }
 
-  return { studio, producer };
+  const labelPatterns = [
+    /released(?:\s+\w+){0,5}\s+(?:on|through|via|by)\s+([A-Z][^,.]{2,50}?(?:Records?|Recordings?|Music|Label|Entertainment)[^,.]{0,20})[,.]/i,
+    /([A-Z][^,.]{2,50}?(?:Records?|Recordings?|Music|Entertainment)[^,.]{0,15})\s+(?:label|signed|released)/i,
+  ];
+  for(const p of labelPatterns){
+    const m = extract.match(p);
+    if(m){ label = m[1].trim().replace(/\s+/g," ").replace(/[,.]$/, ""); break; }
+  }
+
+  const relMatch = extract.match(/released(?:\s+(?:on|in))?\s+([A-Z][a-z]+(?:\s+\d{1,2},?)?\s+(?:19|20)\d{2})/i)
+    || extract.match(/(?:^|[.(])((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+(?:19|20)\d{2})/);
+  if(relMatch) released = relMatch[1].trim();
+
+  const recMatch = extract.match(/recorded(?:\s+(?:between|from|during|in))?\s+((?:(?:January|February|March|April|May|June|July|August|September|October|November|December|early|late|mid)[\s-]+)?(?:19|20)\d{2}[^,.]{0,40})/i);
+  if(recMatch) recorded = recMatch[1].trim().replace(/[,.]$/, "");
+
+  return { studio, producer, label, released, recorded };
 }
 
 // ── MAIN FETCH ORCHESTRATOR (Wikipedia only) ──
@@ -1787,18 +1803,27 @@ async function fetchAlbumAbout(artist, title, year){
   let producer = "";
   let wikiPageTitle = "";
 
+  let label = "";
+  let released = "";
+  let recorded = "";
+
   if(wiki){
     wikiPageTitle = wiki.title;
     const recInfo = extractRecordingInfo(wiki.extract);
     studio   = recInfo.studio;
     producer = recInfo.producer;
+    label    = recInfo.label;
+    released = recInfo.released;
+    recorded = recInfo.recorded;
     facts    = parseWikipediaExtract(wiki.extract, artist, title, year);
   }
 
   const result = {
     studio:   studio   || "Information not available",
     producer: producer || "See liner notes",
-    label:    "",
+    label:    label    || "",
+    released: released || "",
+    recorded: recorded || "",
     facts:    facts.length ? facts : ["Detailed recording info not available for this release."],
     wikiTitle: wikiPageTitle,
     fetched:  true,
@@ -1820,43 +1845,75 @@ async function prefetchAboutData(artist, title, year){
 }
 
 function renderAboutData(container, a, data){
-  const factsHtml = data.facts.map(f=>`<li style="padding:6px 0;border-bottom:1px solid rgba(42,42,42,.5);font-size:13px;color:var(--cream);line-height:1.6">${escAttr(f)}</li>`).join("");
-  const labelRow = data.label ? `
-    <div>
-      <div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px">Label</div>
-      <div style="font-size:13px;color:var(--cream);line-height:1.4">${escAttr(data.label)}</div>
-    </div>` : "";
+  const factsHtml = data.facts.map(f=>`
+    <li style="padding:8px 0;border-bottom:1px solid rgba(42,42,42,.5);font-size:13px;color:var(--cream);line-height:1.65;display:flex;gap:8px;align-items:flex-start">
+      <span style="color:var(--gold);flex-shrink:0;margin-top:2px">▸</span>
+      <span>${escAttr(f)}</span>
+    </li>`).join("");
 
-  const sourceTag = data.fetched
-    ? data.wikiTitle
-      ? `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(data.wikiTitle)}" target="_blank" rel="noopener"
-           style="font-size:9px;color:var(--cream-dim);letter-spacing:.06em;text-decoration:none;border-bottom:1px dotted var(--cream-dim);opacity:.7">
-           Wikipedia ↗</a>`
-      : `<span style="font-size:9px;color:var(--cream-dim);letter-spacing:.06em;opacity:.7">via Wikipedia</span>`
+  const sourceTag = data.fetched && data.wikiTitle
+    ? `<a href="https://en.wikipedia.org/wiki/${encodeURIComponent(data.wikiTitle)}" target="_blank" rel="noopener"
+         style="font-size:9px;color:var(--cream-dim);letter-spacing:.06em;text-decoration:none;border-bottom:1px dotted var(--cream-dim);opacity:.7">
+         Wikipedia ↗</a>`
     : "";
+
+  // Build recording info cells — only show cells with real data
+  function infoCell(label, val, mono=false){
+    if(!val || val==="Information not available" || val==="See liner notes") return "";
+    return `<div>
+      <div style="font-size:9px;color:var(--cream-dim);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">${label}</div>
+      <div style="font-size:13px;color:var(--cream);line-height:1.4${mono?";font-family:'Courier Prime',monospace":"}">${escAttr(val)}</div>
+    </div>`;
+  }
+
+  const infoCells = [
+    infoCell("Studio / Location", data.studio),
+    infoCell("Producer", data.producer),
+    infoCell("Label", data.label),
+    infoCell("Released", data.released, true),
+    infoCell("Recording Period", data.recorded, true),
+  ].filter(Boolean);
+
+  // If we got nothing useful from Wikipedia, show a minimal note
+  const noInfo = infoCells.length === 0 && data.facts.length === 1 && data.facts[0].includes("not available");
 
   container.innerHTML=`
     <div style="display:flex;flex-direction:column;gap:14px">
+
+      ${infoCells.length ? `
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:14px">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">Recording Info</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px">Studio / Location</div>
-            <div style="font-size:13px;color:var(--cream);line-height:1.4">${escAttr(data.studio)}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px">Producer</div>
-            <div style="font-size:13px;color:var(--cream);line-height:1.4">${escAttr(data.producer)}</div>
-          </div>
-          ${labelRow}
+        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:12px">🎙 Recording Info</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+          ${infoCells.join("")}
         </div>
-      </div>
+      </div>` : ""}
+
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)">★ Fun Facts & Lore</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)">★ Fun Facts &amp; Lore</div>
           ${sourceTag}
         </div>
-        <ul style="list-style:none;padding:0;margin:0">${factsHtml}</ul>
+        ${noInfo
+          ? `<p style="font-size:12px;color:var(--cream-dim);line-height:1.6;margin:0">No Wikipedia article found for this release. Try adding your own notes in the Notes tab!</p>`
+          : `<ul style="list-style:none;padding:0;margin:0">${factsHtml}</ul>`
+        }
+      </div>
+
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px 14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div>
+            <div style="font-size:9px;color:var(--cream-dim);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Artist</div>
+            <div style="font-size:13px;color:var(--cream)">${escAttr(a.artist)}</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--cream-dim);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Year</div>
+            <div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${a.year}</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--cream-dim);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px">Genre</div>
+            <div style="font-size:13px;color:var(--cream)">${escAttr(a.genre)}</div>
+          </div>
+        </div>
       </div>
     </div>`;
 }
@@ -2113,49 +2170,58 @@ function addManualAlbum(){
 }
 
 // ── WANTLIST ──
-document.getElementById("wantListBtn").addEventListener("click",()=>{document.getElementById("wantlistModal").classList.add("open");renderWantList()});
-document.getElementById("wantlistClose").addEventListener("click",()=>document.getElementById("wantlistModal").classList.remove("open"));
-document.getElementById("wantlistModal").addEventListener("click",e=>{if(e.target===document.getElementById("wantlistModal"))document.getElementById("wantlistModal").classList.remove("open")});
-document.getElementById("wantTitleInput").addEventListener("keydown",e=>{if(e.key==="Enter")addWantItem()});
+// Holds the last iTunes item selected from the dropdown
+let _wantSelectedItem = null;
+
+document.getElementById("wantListBtn").addEventListener("click",()=>{document.getElementById("wantlistModal").classList.add("open");renderWantList();});
+document.getElementById("wantlistClose").addEventListener("click",()=>{document.getElementById("wantlistModal").classList.remove("open");});
+document.getElementById("wantlistModal").addEventListener("click",e=>{if(e.target===document.getElementById("wantlistModal"))document.getElementById("wantlistModal").classList.remove("open");});
+document.getElementById("wantSearchInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();if(_wantSelectedItem)commitWantItem(_wantSelectedItem);else addWantManual();}});
 
 // ── LIVE SEARCH FOR WANTLIST ──
-const wantDebounce=debounce(async()=>{
-  const artist=document.getElementById("wantArtistInput").value.trim();
-  const title=document.getElementById("wantTitleInput").value.trim();
-  const q=(artist+" "+title).trim();
-  if(q.length<2){closeAutocomplete("wantAutoDropdown");return}
+const wantDebounce=debounce(async(q)=>{
+  _wantSelectedItem=null;
+  if(q.length<2){closeAutocomplete("wantAutoDropdown");return;}
   const drop=document.getElementById("wantAutoDropdown");
   drop.innerHTML=`<div class="ac-spinner">Searching…</div>`;drop.classList.add("open");
   try{
     const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=8`);
     const d=await r.json();
     buildAcDropdown(drop,d.results||[],(item)=>{
-      // Auto-fill fields when user picks from dropdown
-      document.getElementById("wantArtistInput").value=item.artistName||"";
-      document.getElementById("wantTitleInput").value=item.collectionName||"";
-      document.getElementById("wantYearInput").value=item.releaseDate?item.releaseDate.slice(0,4):"";
+      _wantSelectedItem=item;
+      document.getElementById("wantSearchInput").value=`${item.collectionName||""} — ${item.artistName||""}`;
       closeAutocomplete("wantAutoDropdown");
+      // Immediately commit
+      commitWantItem(item);
     },"want");
-  }catch{drop.classList.remove("open")}
+  }catch{drop.classList.remove("open");}
 },380);
 
-document.getElementById("wantTitleInput").addEventListener("input",wantDebounce);
-document.getElementById("wantArtistInput").addEventListener("input",wantDebounce);
-document.getElementById("wantTitleInput").addEventListener("blur",()=>setTimeout(()=>closeAutocomplete("wantAutoDropdown"),200));
+document.getElementById("wantSearchInput").addEventListener("input",e=>{wantDebounce(e.target.value.trim());});
+document.getElementById("wantSearchInput").addEventListener("blur",()=>setTimeout(()=>closeAutocomplete("wantAutoDropdown"),200));
 
-async function addWantItem(){
-  const artist=document.getElementById("wantArtistInput").value.trim();
-  const title=document.getElementById("wantTitleInput").value.trim();
-  const year=document.getElementById("wantYearInput").value.trim();
-  if(!title&&!artist){showToast("Enter at least an artist or title");return}
-  const item={id:Date.now(),artist:artist||"Unknown Artist",title:title||"Unknown Album",year:year||"",artUrl:""};
-  // Try to find cover art
-  const q=encodeURIComponent(`${artist} ${title}`.trim());
-  try{const r=await fetch(`https://itunes.apple.com/search?term=${q}&entity=album&limit=1`);const d=await r.json();if(d.results&&d.results.length)item.artUrl=d.results[0].artworkUrl100;}catch{}
+function commitWantItem(itunesItem){
+  const year=itunesItem.releaseDate?itunesItem.releaseDate.slice(0,4):"";
+  const item={id:Date.now(),artist:itunesItem.artistName||"Unknown Artist",title:itunesItem.collectionName||"Unknown Album",year,artUrl:itunesItem.artworkUrl100||""};
   wantList.push(item);saveWantList();renderWantList();
-  document.getElementById("wantArtistInput").value="";document.getElementById("wantTitleInput").value="";document.getElementById("wantYearInput").value="";
-  showToast(`✓ "${item.title}" added to want list`);
+  document.getElementById("wantSearchInput").value="";
+  _wantSelectedItem=null;
+  showToast(`✓ "${item.title}" added to wish list`);
 }
+
+async function addWantManual(){
+  const raw=document.getElementById("wantSearchInput").value.trim();
+  if(!raw){showToast("Type an artist or album name first");return;}
+  const item={id:Date.now(),artist:"Unknown Artist",title:raw,year:"",artUrl:""};
+  // Try to find cover art from iTunes
+  try{const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(raw)}&entity=album&limit=1`);const d=await r.json();if(d.results&&d.results.length){const hit=d.results[0];item.artUrl=hit.artworkUrl100||"";if(!item.year&&hit.releaseDate)item.year=hit.releaseDate.slice(0,4);}}catch{}
+  wantList.push(item);saveWantList();renderWantList();
+  document.getElementById("wantSearchInput").value="";
+  showToast(`✓ "${item.title}" added to wish list`);
+}
+
+// Legacy stub so nothing breaks
+async function addWantItem(){addWantManual();}
 
 function removeWantItem(id){wantList=wantList.filter(x=>x.id!==id);saveWantList();renderWantList()}
 
