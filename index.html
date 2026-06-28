@@ -358,7 +358,7 @@
 
 <!-- HEADER -->
 <header class="site-header">
-  <div class="logo" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="cursor:pointer" title="Back to top">THE CRATE <span>Vinyl Collection</span></div>
+  <div class="logo" id="logoBtn" style="cursor:pointer" title="Back to top">THE CRATE <span>Vinyl Collection</span></div>
   <div class="header-search">
     <input type="search" id="searchInput" placeholder="Search artist or title…" autocomplete="off">
     <span class="search-icon">⌕</span>
@@ -487,6 +487,11 @@
     </div>
     <div class="tab-panel" id="tab-about">
       <div id="aboutContainer"></div>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+      <button id="detailDeleteBtn" onclick="deleteAlbumFromModal()" style="background:none;border:1px solid var(--red-bright);border-radius:3px;color:var(--red-bright);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;letter-spacing:.06em;padding:7px 14px;cursor:pointer;transition:background .15s,color .15s;display:flex;align-items:center;gap:6px">
+        <span style="font-size:13px">🗑</span> Remove from Crate
+      </button>
     </div>
   </div>
 </div>
@@ -1955,6 +1960,36 @@ function buildAboutTab(id){
 // Close detail modal
 document.getElementById("detailClose").addEventListener("click",()=>{document.getElementById("detailModal").classList.remove("open");closePhotoMenu();currentDetailId=null});
 document.getElementById("detailModal").addEventListener("click",e=>{if(e.target===document.getElementById("detailModal")){document.getElementById("detailModal").classList.remove("open");closePhotoMenu();currentDetailId=null}});
+
+// Delete from inside the detail modal
+function deleteAlbumFromModal(){
+  if(!currentDetailId)return;
+  const a=vinylCollection.find(x=>x.id===currentDetailId);
+  if(!a)return;
+  if(!confirm(`Remove "${a.title}" from your crate?`))return;
+  document.getElementById("detailModal").classList.remove("open");
+  closePhotoMenu();
+  const id=currentDetailId;
+  currentDetailId=null;
+  deleteAlbum(id);
+}
+
+// Logo — clear all filters/search and snap to top
+document.getElementById("logoBtn").addEventListener("click",()=>{
+  const input=document.getElementById("searchInput");
+  input.value="";
+  state.search="";
+  state.genre="";
+  state.decade="";
+  state.favOnly=false;
+  state.sort="az";
+  document.getElementById("genreFilter").value="";
+  document.getElementById("decadeFilter").value="";
+  document.getElementById("favFilterBtn").classList.remove("active");
+  document.querySelectorAll(".sort-btn").forEach(b=>b.classList.toggle("active",b.dataset.sort==="az"));
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+});
 
 // ── SPIN ──
 let spinTimeout=null;
