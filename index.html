@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=600">
 <title>The Crate — Vinyl Collection</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Inter:wght@300;400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -317,22 +317,34 @@
   @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
   /* RESPONSIVE */
-  @media(max-width:640px){
-    .site-header{gap:6px;padding:0 10px}
-    .logo{font-size:17px}
+  /* At viewport width=600, this breakpoint always fires on mobile */
+  @media(max-width:620px){
+    /* Header: compact but keep all labels */
+    .site-header{gap:6px;padding:0 10px;height:56px;flex-wrap:nowrap}
+    .logo{font-size:16px;flex-shrink:0}
     .logo span{display:none}
-    .spin-btn{padding:7px 8px;font-size:10px}
-    .header-actions{gap:4px}
-    .want-list-btn,.stats-btn,.add-album-btn{padding:6px 7px;font-size:10px;gap:2px}
-    .want-list-btn span:last-child,.stats-btn span:last-child,.add-album-btn span:last-child{display:none}
-    .filter-bar{padding:8px 10px;gap:6px}
-    .filter-select{font-size:11px;padding:5px 22px 5px 8px}
-    .grid{padding:8px 8px 48px;gap:8px;grid-template-columns:repeat(3,1fr)}
-    .card-body{padding:7px 8px 9px}
-    .card-artist{font-size:9px;margin-bottom:2px}
-    .card-title{font-size:12px;margin-bottom:4px}
-    .card-meta{font-size:10px}
-    .card-genre-tag{font-size:8px;padding:2px 4px}
+    .header-search{max-width:120px;flex-shrink:1;min-width:60px}
+    .header-search input{font-size:11px;padding:6px 28px 6px 8px}
+    .header-actions{gap:4px;flex-shrink:0}
+    .stats-btn,.want-list-btn,.add-album-btn{
+      padding:6px 7px;font-size:10px;gap:3px
+    }
+    .spin-btn{padding:6px 8px;font-size:11px}
+    /* Filter bar */
+    .filter-bar{padding:7px 10px;gap:5px;flex-wrap:nowrap;overflow-x:auto}
+    .filter-label{display:none}
+    .filter-select{font-size:11px;padding:5px 20px 5px 8px}
+    .fav-filter-btn{font-size:11px;padding:5px 8px}
+    .sort-group{margin-left:auto;flex-shrink:0}
+    .sort-btn{font-size:10px;padding:5px 9px}
+    /* 3-column grid */
+    .grid{padding:8px 8px 48px;gap:7px;grid-template-columns:repeat(3,1fr)}
+    .card-body{padding:6px 7px 8px}
+    .card-artist{font-size:8px;margin-bottom:1px}
+    .card-title{font-size:11px;margin-bottom:3px}
+    .card-meta{font-size:9px;gap:4px}
+    .card-genre-tag{font-size:7px;padding:1px 4px}
+    /* Detail modal */
     .detail-modal-header{grid-template-columns:1fr}
     .detail-art-wrap{border-radius:6px 6px 0 0;aspect-ratio:16/9;max-height:200px}
     .form-row{grid-template-columns:1fr}
@@ -1614,34 +1626,108 @@ const ALBUM_FACTS = {
 };
 
 
-function buildAboutTab(id){
-  const a=vinylCollection.find(x=>x.id===id);
-  const container=document.getElementById("aboutContainer");
-  if(!a){container.innerHTML="<p style='color:var(--cream-dim);font-size:13px;padding:8px'>No album selected.</p>";return}
+// ── MUSICBRAINZ AUTO-FILL ──
+// Stores fetched about data keyed by "artist|title" (lowercase).
+// Each entry: { studio, label, producer, facts:[], fetched: true }
+let mbAboutCache = lsGet("crate_mb_about", {});
+function saveMbAboutCache(){ lsSet("crate_mb_about", mbAboutCache); }
 
-  const key=`${a.artist}|${a.title}|${a.year}`.toLowerCase();
-  const keyNoYear=`${a.artist}|${a.title}`.toLowerCase();
-  const data=ALBUM_FACTS[key]||ALBUM_FACTS[keyNoYear];
+async function fetchMusicBrainzAbout(artist, title, year){
+  const cacheKey = (artist + "|" + title).toLowerCase();
+  if(mbAboutCache[cacheKey]) return mbAboutCache[cacheKey];
 
-  if(!data){
-    // Generic display for albums not in the database
-    container.innerHTML=`
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:14px">
-          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Album Details</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Artist</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${escAttr(a.artist)}</div></div>
-            <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Year</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${a.year}</div></div>
-            <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Genre</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${escAttr(a.genre)}</div></div>
-            <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Decade</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${a.decade}s</div></div>
-          </div>
-        </div>
-        <p style="font-size:12px;color:var(--cream-dim);text-align:center;padding:8px">No detailed info on file for this record yet.</p>
-      </div>`;
-    return;
+  const MB = "https://musicbrainz.org/ws/2";
+  const UA = "TheCrateVinyl/1.0 (vinyl-crate-app)";
+  const headers = { "Accept": "application/json", "User-Agent": UA };
+
+  try {
+    // 1. Search for the release group
+    const q = encodeURIComponent(`release:${title} artist:${artist}`);
+    const searchRes = await fetch(`${MB}/release-group?query=${q}&limit=5&fmt=json`, { headers });
+    if(!searchRes.ok) return null;
+    const searchData = await searchRes.json();
+    if(!searchData["release-groups"] || !searchData["release-groups"].length) return null;
+
+    // Pick best match — prefer year match if available
+    let rg = searchData["release-groups"][0];
+    if(year){
+      const yrMatch = searchData["release-groups"].find(r => r["first-release-date"] && r["first-release-date"].startsWith(String(year)));
+      if(yrMatch) rg = yrMatch;
+    }
+    const rgId = rg.id;
+
+    // 2. Get release group details (tags, relations)
+    const rgRes = await fetch(`${MB}/release-group/${rgId}?inc=releases+tags+url-rels+genres&fmt=json`, { headers });
+    if(!rgRes.ok) return null;
+    const rgData = await rgRes.json();
+
+    // 3. Get the first release for recording details
+    const releases = rgData.releases || [];
+    let releaseData = null;
+    if(releases.length){
+      const relRes = await fetch(`${MB}/release/${releases[0].id}?inc=recordings+artist-credits+labels+release-events&fmt=json`, { headers });
+      if(relRes.ok) releaseData = await relRes.json();
+    }
+
+    // Extract useful info
+    const label = releaseData?.["label-info"]?.[0]?.label?.name || "";
+    const country = releaseData?.country || "";
+    const releaseEvents = releaseData?.["release-events"] || [];
+    const areas = releaseEvents.map(e => e.area?.name).filter(Boolean);
+    const locationStr = areas.length ? [...new Set(areas)].join(", ") : (country || "");
+
+    // MusicBrainz tags as fun facts seeds
+    const mbTags = (rgData.tags || []).sort((a,b)=>b.count-a.count).slice(0,6).map(t=>t.name);
+    const mbGenres = (rgData.genres || []).sort((a,b)=>b.count-a.count).slice(0,4).map(g=>g.name);
+
+    const facts = [];
+    if(label) facts.push(`Originally released on ${label}.`);
+    if(mbGenres.length) facts.push(`Tagged genres: ${mbGenres.join(", ")}.`);
+    if(mbTags.length) facts.push(`Community tags: ${mbTags.join(", ")}.`);
+    if(releaseEvents.length > 1){
+      const countries = [...new Set(releaseEvents.map(e => e.area?.name).filter(Boolean))];
+      if(countries.length > 1) facts.push(`Released in multiple regions: ${countries.join(", ")}.`);
+    }
+    if(rg["first-release-date"]) facts.push(`First released: ${rg["first-release-date"]}.`);
+    // Add disambiguation if available
+    if(rg.disambiguation) facts.push(rg.disambiguation);
+
+    const result = {
+      studio: locationStr || "Information not available",
+      producer: "See liner notes",
+      label: label || "",
+      facts: facts.length ? facts : ["Additional details not available in the MusicBrainz database for this release."],
+      fetched: true,
+      fetchedAt: Date.now()
+    };
+
+    mbAboutCache[cacheKey] = result;
+    saveMbAboutCache();
+    return result;
+  } catch(err) {
+    return null;
   }
+}
 
-  const factsHtml=data.facts.map(f=>`<li style="padding:5px 0;border-bottom:1px solid rgba(42,42,42,.5);font-size:13px;color:var(--cream);line-height:1.55">${escAttr(f)}</li>`).join("");
+// Called after an album is added — pre-fetches MusicBrainz data in background
+async function prefetchAboutData(artist, title, year){
+  const cacheKey = (artist + "|" + title).toLowerCase();
+  // Already have hardcoded or cached data — skip
+  const hcKey = `${artist}|${title}|${year}`.toLowerCase();
+  const hcKeyNoYear = `${artist}|${title}`.toLowerCase();
+  if(ALBUM_FACTS[hcKey] || ALBUM_FACTS[hcKeyNoYear] || mbAboutCache[cacheKey]) return;
+  // Fire and forget — no await
+  fetchMusicBrainzAbout(artist, title, year);
+}
+
+function renderAboutData(container, a, data){
+  const isHardcoded = !data.fetched;
+  const factsHtml = data.facts.map(f=>`<li style="padding:5px 0;border-bottom:1px solid rgba(42,42,42,.5);font-size:13px;color:var(--cream);line-height:1.55">${escAttr(f)}</li>`).join("");
+  const labelRow = data.label ? `
+    <div>
+      <div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px">Label</div>
+      <div style="font-size:13px;color:var(--cream);line-height:1.4">${escAttr(data.label)}</div>
+    </div>` : "";
 
   container.innerHTML=`
     <div style="display:flex;flex-direction:column;gap:14px">
@@ -1656,13 +1742,65 @@ function buildAboutTab(id){
             <div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px">Producer</div>
             <div style="font-size:13px;color:var(--cream);line-height:1.4">${escAttr(data.producer)}</div>
           </div>
+          ${labelRow}
         </div>
       </div>
       <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:14px">
-        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">★ Fun Facts & Lore</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)">★ Fun Facts & Lore</div>
+          ${data.fetched?`<span style="font-size:9px;color:var(--cream-dim);letter-spacing:.06em">via MusicBrainz</span>`:""}
+        </div>
         <ul style="list-style:none;padding:0;margin:0">${factsHtml}</ul>
       </div>
     </div>`;
+}
+
+function buildAboutTab(id){
+  const a=vinylCollection.find(x=>x.id===id);
+  const container=document.getElementById("aboutContainer");
+  if(!a){container.innerHTML="<p style='color:var(--cream-dim);font-size:13px;padding:8px'>No album selected.</p>";return}
+
+  const key=`${a.artist}|${a.title}|${a.year}`.toLowerCase();
+  const keyNoYear=`${a.artist}|${a.title}`.toLowerCase();
+  const hardcoded=ALBUM_FACTS[key]||ALBUM_FACTS[keyNoYear];
+
+  // If hardcoded curator data exists, use it immediately
+  if(hardcoded){ renderAboutData(container, a, hardcoded); return; }
+
+  // Check MusicBrainz cache
+  const cached = mbAboutCache[keyNoYear];
+  if(cached){ renderAboutData(container, a, cached); return; }
+
+  // Show loading state and fetch
+  container.innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:14px">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Album Details</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Artist</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${escAttr(a.artist)}</div></div>
+          <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Year</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${a.year}</div></div>
+          <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Genre</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${escAttr(a.genre)}</div></div>
+          <div><div style="font-size:10px;color:var(--cream-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Decade</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:var(--cream)">${a.decade}s</div></div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:16px;color:var(--cream-dim);font-size:12px" id="mbLoadingMsg">
+        <div style="font-size:20px;margin-bottom:8px">🔍</div>
+        Looking up recording info via MusicBrainz…
+      </div>
+    </div>`;
+
+  fetchMusicBrainzAbout(a.artist, a.title, a.year).then(data=>{
+    // Only update if this album is still open
+    if(currentDetailId !== id) return;
+    const stillContainer = document.getElementById("aboutContainer");
+    if(!stillContainer) return;
+    if(data){
+      renderAboutData(stillContainer, a, data);
+    } else {
+      const msg = stillContainer.querySelector("#mbLoadingMsg");
+      if(msg) msg.innerHTML=`<div style="font-size:20px;margin-bottom:8px">📀</div>No detailed info found in the MusicBrainz database for this release. Try adding notes in the Notes tab!`;
+    }
+  });
 }
 
 // Close detail modal
@@ -1820,6 +1958,7 @@ function addAlbumFromSearch(item,isDuplicate=false){
   document.getElementById("searchResultsList").innerHTML="";
   document.getElementById("addSearchInput").value="";
   showToast(`✓ "${album.title}" added${isDuplicate?" (duplicate copy)":""}`);
+  prefetchAboutData(album.artist, album.title, album.year);
 }
 
 function addManualAlbum(){
@@ -1834,6 +1973,7 @@ function addManualAlbum(){
   document.getElementById("addModal").classList.remove("open");
   ["formArtist","formTitle","formYear"].forEach(id=>document.getElementById(id).value="");
   showToast(`✓ "${title}" added to your crate`);
+  prefetchAboutData(artist, title, year);
 }
 
 // ── WANTLIST ──
@@ -1890,6 +2030,7 @@ function moveWantToCrate(id){
   vinylCollection.push(album);const ua=lsGet("crate_user_albums",[]);ua.push(album);lsSet("crate_user_albums",ua);
   removeWantItem(id);buildFilters();render();
   showToast(`✓ "${album.title}" moved to your crate`);
+  prefetchAboutData(album.artist, album.title, album.year);
 }
 
 function renderWantList(){
