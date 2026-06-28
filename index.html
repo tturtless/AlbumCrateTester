@@ -595,6 +595,23 @@ function getPlaceholder(genre){return GENRE_IMAGES[genre]||GENRE_IMAGES["default
 // Key format: "artist|title" (lowercase). Add more as needed.
 const DISCOGS_COVERS = {
   "jimi hendrix|high, live 'n' dirty": "https://i.discogs.com/PAkQRY4lUTwv0MUdWbJPlWNnUBIzoEuJMvQqTjAUz20/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTIzNTI4/OTMtMTI3OTgzNjc5/My5qcGVn.jpeg",
+  "chicago|chicago": "https://i.discogs.com/ML6KvRv-zvuVC-hAPp55suiwIHUHc5MI0lNj801Axbs/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY3NTc3/NzYtMTQyNjAwMjkw/NC04NDM1LmpwZWc.jpeg",
+  "chicago|chicago greatest hits 9": "https://i.discogs.com/mw2pGhqCFqVGxubH-8O6w7FKKMjkrtRlG8fbNP0P0TY/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTcwOTQ4/NC0xMzY1Mzc0NjU3/LTQzMzAuanBlZw.jpeg",
+  "cruisin|5 lp set": "https://i.discogs.com/3_5zxpzdvIa7D89hhiosXMXWrx2McvNwWlnhaETQnVc/rs:fit/g:sm/q:90/h:600/w:595/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTU0MjY3/ODYtMTM5MzA4NTQ5/Ny01OTE3LmpwZWc.jpeg",
+  "eddie and the cruisers|soundtrack": "https://i.discogs.com/sdx8LeyYqeRcU5qd0-oVwvflm8DasQBqlw2z0tpvBks/rs:fit/g:sm/q:90/h:585/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTk2OTkx/Ny0xNTg4NDA5ODky/LTUyMTcuanBlZw.jpeg",
+  "electric light orchestra|greatest hits": "https://i.discogs.com/gvAMs4vqQFMkDKDAz6IIQu6QQgDBcZTdTH9oXTZ6A14/rs:fit/g:sm/q:90/h:569/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM4Nzg0/Mi0xMjkxODU0MDg1/LmpwZWc.jpeg",
+  "elvis presley|double dynamite": "https://i.discogs.com/mNfnucIOIUs9vyJ2Xa-4cPwhsa1YgBMD803nAW07AMI/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE0MDIy/MDItMTMxMjA3NzM3/OC5qcGVn.jpeg",
+  "elvis presley|elvis the legend lives on": "https://i.discogs.com/ov9P15owNXw4ErYGZ_j1xUwqrliOmL5bM828Gy4IPA0/rs:fit/g:sm/q:90/h:300/w:311/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM2MjA3/NTQtMTMzNzY4NzY5/OS00MjI5LmpwZWc.jpeg",
+  "elvis presley|gold records volume 5": "https://i.discogs.com/iou6qS5szeY_JF24gHtIWxk7QmPgzqzEWBWWfpOFPpY/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTUxOTY1/NjEtMTQ4NzM2MjQ5/My03MTI3LmpwZWc.jpeg",
+  "foreigner|foreigner": "https://i.discogs.com/oEj74iYxR3jtmswQkEnVrBhRYufUjxjVncNvffQgDkM/rs:fit/g:sm/q:90/h:595/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc2NDk2/Ni0xNTYzNzM2ODQ2/LTU0MzQuanBlZw.jpeg",
+  "green day|american idiot": "https://i.discogs.com/MZK1NpQQ4V2QYjchCOmpc6aZuYJVjfAWfw9c5cAp6zI/rs:fit/g:sm/q:90/h:596/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTEyMDM0/NzAtMTU3NDI2ODI2/Ni05MDM2LmpwZWc.jpeg",
+  "mose jones|blackbird": "https://i.discogs.com/oYCqUWSfg3-hof6zXo2X3EHAlx952rxCiXXmtu0erDI/rs:fit/g:sm/q:90/h:600/w:595/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTY4MTUy/NjQtMTQyNzIwNjMx/OC0zNjA5LmpwZWc.jpeg",
+  "pearl jam|ten": "https://i.discogs.com/rttPGqFmPw8eqZNCMNE6IpHNcCV22Z-p0DQ5hAL50RI/rs:fit/g:sm/q:90/h:600/w:596/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTExMTE2/NDUxLTE1MTE1Mzk0/MTYtMzkyMi5qcGVn.jpeg",
+  "peter frampton & the bee gees|sgt. pepper's lonely hearts club band": "https://i.discogs.com/ZxClWXCi4c2U1VERxcDf1BZKoW8-1qt-I1PY0iEHbMk/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTExNDAx/MzMzLTE3NzY1MjAy/NzktMjM1MS5qcGVn.jpeg",
+  "pink floyd|animals": "https://i.discogs.com/_hYJ-UiHBq0KtuIlz26o-4Ar82o9589HIFIE5XOXuVU/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTM5MTMy/Mi0xNjkxNTYzMjc4/LTYwODAuanBlZw.jpeg",
+  "pink floyd|the dark side of the moon": "https://i.discogs.com/1fwskTLM6cfxbdNmBDJ8expl6wab0tEgxvuloLIqKh8/rs:fit/g:sm/q:90/h:596/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTkyODc4/MDktMTQ3OTc1MzIz/Ni05NjE3LmpwZWc.jpeg",
+  "the babys|union jacks": "https://i.discogs.com/59xvhuAuOA8gjeG3cW08gu92XPDdoevrzizhxIHtZ9U/rs:fit/g:sm/q:90/h:597/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTc1MzU4/OC0xNTM4MTMyOTQ1/LTYzMTguanBlZw.jpeg",
+  "the cars|the cars": "https://i.discogs.com/mQ4p8rs4QCkWGIUV36RxMK41r3w-paGDsHmPYFZwydA/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9SLTE5MDIx/OS0xMzE5MDU0ODYz/LmpwZWc.jpeg",
 };
 
 // ── PERSISTENCE ──
